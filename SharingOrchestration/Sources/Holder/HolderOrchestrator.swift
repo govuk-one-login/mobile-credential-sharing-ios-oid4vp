@@ -7,24 +7,10 @@ import SwiftCBOR
 
 // swiftlint:disable file_length
 @MainActor
-public protocol HolderOrchestratorProtocol {
-    var delegate: HolderOrchestratorDelegate? { get set }
-    func startPresentation()
-    func userDidTapCancel()
-    func resolve(_ missingPrerequisite: MissingPrerequisite)
-    func userDidTapApprove()
-    func userDidTapDeny()
-}
-
-public protocol HolderOrchestratorDelegate: AnyObject {
-    func orchestrator(didUpdateState state: HolderSessionState?)
-}
-
-@MainActor
 // swiftlint:disable:next type_body_length
-public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
-    private(set) var session: HolderSessionProtocol?
-    public weak var delegate: HolderOrchestratorDelegate?
+public class BLEHolderOrchestrator: BLEHolderOrchestratorProtocol {
+    private(set) var session: BLEHolderSessionProtocol?
+    public weak var delegate: SharingOrchestratorDelegate?
     
     // We must maintain a strong reference to PrerequisiteGate to enable the CoreBluetooth OS prompt to be displayed
     private(set) var prerequisiteGate: PrerequisiteGateProtocol?
@@ -49,7 +35,7 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
     }
     
     public func startPresentation() {
-        session = HolderSession()
+        session = BLEHolderSession()
         print("Holder Presentation Session started")
         
         // MARK: - Pre-flight Checks
@@ -71,7 +57,7 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
                 self.performPreflightChecks()
             }
             if missingPrerequisites.isEmpty {
-                try session?.transition(to: .readyToPresent)
+                try session?.transition(to: .bleReadyToPresent)
                 print(session?.currentState ?? "")
                 
                 // MARK: - Initialisation & Device Engagement
@@ -145,7 +131,7 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
         }
         
         do {
-            try session?.transition(to: .presentingEngagement(qrCode: qrCode))
+            try session?.transition(to: .blePresentingEngagement(qrCode: qrCode))
             delegate?.orchestrator(didUpdateState: session?.currentState)
         } catch {
             delegate?.orchestrator(didUpdateState: .failed(.generic(error.localizedDescription)))
@@ -158,8 +144,8 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
         
         do {
             // TODO: DCMAW-18497 Look into changing the behaviour of connectionDidConnect within BLEPeripheralTransport .handleDidSubscribe() to avoid this check
-            if session.currentState != .processingEstablishment {
-                try session.transition(to: .processingEstablishment)
+            if session.currentState != .bleProcessingEstablishment {
+                try session.transition(to: .bleProcessingEstablishment)
                 delegate?.orchestrator(didUpdateState: session.currentState)
             }
         } catch {
@@ -171,7 +157,7 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
         guard let session = getSession() else { return }
         do {
             // Guard to prevent deviceRequest error being thrown beyond processingEstablishment
-            guard session.currentState == .processingEstablishment else {
+            guard session.currentState == .bleProcessingEstablishment else {
                 return
             }
             let deviceRequest = try cryptoService?.processSessionEstablishment(incoming: messageData, in: session)
@@ -196,7 +182,7 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
         }
     }
 
-    private func validateCredential(for deviceRequest: DeviceRequest, in session: HolderSessionProtocol) async {
+    private func validateCredential(for deviceRequest: DeviceRequest, in session: BLEHolderSessionProtocol) async {
         do {
             try await credentialRequestHandler.requestAndValidateCredential(for: deviceRequest, in: session)
             
@@ -208,7 +194,7 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
         }
     }
     
-    private func filterIssuerSigned(for deviceRequest: DeviceRequest, in session: HolderSessionProtocol) {
+    private func filterIssuerSigned(for deviceRequest: DeviceRequest, in session: BLEHolderSessionProtocol) {
         do {
             try credentialRequestHandler.filterIssuerSigned(for: deviceRequest, in: session)
             
@@ -229,7 +215,7 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
         }
     }
     
-    public func userDidTapApprove() {
+    public func userDidApprove() {
         guard let session = getSession() else { return }
         
         do {
@@ -334,7 +320,7 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
         }
     }
     
-    public func userDidTapDeny() {
+    public func userDidDeny() {
         guard let session = getSession() else { return }
         do {
             try session.transition(to: .processingResponse)
@@ -352,7 +338,7 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
         }
     }
     
-    public func userDidTapCancel() {
+    public func cancel() {
         transitionToCancel()
         tearDownSession(andNotify: true)
     }
@@ -381,7 +367,7 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
         prerequisiteGate?.triggerResolution(for: missingPrerequisite)
     }
     
-    private func getSession() -> HolderSessionProtocol? {
+    private func getSession() -> BLEHolderSessionProtocol? {
         guard let session else {
             delegate?.orchestrator(didUpdateState: .failed(.generic("Session is not available.")))
             return nil
@@ -391,9 +377,9 @@ public class HolderOrchestrator: @MainActor HolderOrchestratorProtocol {
 }
 
 // MARK: - BluetoothTransport Delegate
-extension HolderOrchestrator: @MainActor BluetoothTransportDelegate {
+extension BLEHolderOrchestrator: @MainActor BluetoothTransportDelegate {
     public func bluetoothTransportDidPowerOn() {
-        // This delegate function is not used by the HolderOrchestrator
+        // This delegate function is not used by the BLEHolderOrchestrator
     }
     
     public func bluetoothTransportDidFail(with error: BluetoothTransportError) {
@@ -409,7 +395,7 @@ extension HolderOrchestrator: @MainActor BluetoothTransportDelegate {
     }
 
     public func bluetoothTransportDidDiscover() {
-        // This delegate function is not used by the HolderOrchestrator
+        // This delegate function is not used by the BLEHolderOrchestrator
     }
     
     public func bluetoothTransportDidReceiveMessageData(_ messageData: Data) {

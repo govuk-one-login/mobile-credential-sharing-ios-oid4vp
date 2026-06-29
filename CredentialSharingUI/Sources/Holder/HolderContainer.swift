@@ -5,10 +5,10 @@ import UIKit
 @MainActor
 class HolderContainer: UIViewController {
     static let activityIndicatorIdentifier = "HolderContainerActivityIndicator"
-    var orchestrator: HolderOrchestratorProtocol
+    var orchestrator: any BLEHolderOrchestratorProtocol
     let activityIndicator = UIActivityIndicatorView(style: .large)
-    
-    init(orchestrator: HolderOrchestratorProtocol) {
+
+    init(orchestrator: any BLEHolderOrchestratorProtocol) {
         self.orchestrator = orchestrator
         super.init(nibName: nil, bundle: nil)
         self.orchestrator.delegate = self
@@ -39,8 +39,8 @@ class HolderContainer: UIViewController {
     }
 }
 
-extension HolderContainer: @MainActor HolderOrchestratorDelegate {
-    func orchestrator(didUpdateState state: HolderSessionState?) {
+extension HolderContainer: @MainActor SharingOrchestratorDelegate {
+    func orchestrator(didUpdateState state: SharingSessionState?) {
         guard let state = state else {
             navigateToErrorView(
                 error: .generic("Something went wrong. Try again later.")
@@ -52,11 +52,11 @@ extension HolderContainer: @MainActor HolderOrchestratorDelegate {
             break
         case .preflight(missingPrerequisites: let missingPrerequisites):
             renderPreflightUI(for: missingPrerequisites)
-        case .readyToPresent:
+        case .bleReadyToPresent:
             break
-        case .presentingEngagement(let qrCode):
+        case .blePresentingEngagement(let qrCode):
             renderQRCodeUI(with: qrCode)
-        case .processingEstablishment:
+        case .bleProcessingEstablishment:
             navigateTo(LoadingViewController())
         case .awaitingUserConsent(let deviceRequest):
             navigateTo(ConsentViewController(deviceRequest: deviceRequest, orchestrator: orchestrator))
@@ -100,7 +100,7 @@ extension HolderContainer: @MainActor HolderOrchestratorDelegate {
 extension HolderContainer: @MainActor QRCodeViewControllerDelegate {
     func didTapCancel() {
         print("Tapped cancel")
-        self.orchestrator.userDidTapCancel()
+        self.orchestrator.cancel()
     }
     
     func didTapNavigateToSettings() {

@@ -29,7 +29,7 @@ struct CredentialPresenterTests {
             completion: {}
         )
         
-        let viewController = presenter.viewControllerForSharingJourney()
+        let viewController = presenter.viewControllerForBLESharingJourney()
         
         #expect(viewController is HolderContainerNavigation)
     }
@@ -43,7 +43,7 @@ struct CredentialPresenterTests {
             completion: {}
         )
         
-        let viewController = presenter.viewControllerForSharingJourney()
+        let viewController = presenter.viewControllerForBLESharingJourney()
         let navController = viewController as? HolderContainerNavigation
         
         #expect(navController?.viewControllers.first is HolderContainer)

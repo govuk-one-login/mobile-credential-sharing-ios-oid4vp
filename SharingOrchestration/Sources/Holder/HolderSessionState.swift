@@ -2,9 +2,9 @@ import SharingCryptoService
 import SharingPrerequisiteGate
 import UIKit
 
-// MARK: - HolderSessionState
+// MARK: - SharingSessionState
 
-public enum HolderSessionState: Equatable, Hashable, Sendable {
+public enum SharingSessionState: Equatable, Hashable, Sendable {
 
     /// Null-value object declaring that a User hasn't started a journey yet.
     case notStarted
@@ -12,16 +12,18 @@ public enum HolderSessionState: Equatable, Hashable, Sendable {
     /// Device is checking prerequisites for the journey.
     case preflight(missingPrerequisites: [MissingPrerequisite])
 
+    // BLE-specific states
     /// Device is ready to present encoded engagement data.
-    case readyToPresent
+    case bleReadyToPresent
 
     /// Device is actively presenting engagement data.
-    case presentingEngagement(qrCode: UIImage)
+    case blePresentingEngagement(qrCode: UIImage)
 
     /// Device has established initial connection to a verifier
-    case processingEstablishment
+    case bleProcessingEstablishment
 
-    /// A request has been received & validated, awaiting users conesnt to share.
+    // Common states
+    /// A request has been received & validated, awaiting users consent to share.
     case awaitingUserConsent(DeviceRequest)
 
     /// User is generating the response proof.
@@ -29,20 +31,20 @@ public enum HolderSessionState: Equatable, Hashable, Sendable {
 
     /// The journey was successful
     case success
-    
+
     /// There was an irrecoverable error
     case failed(SessionError)
-    
+
     /// Journey has been cancelled by either Holder or Verifier
     case cancelled
 
-    var kind: HolderSessionStateKind {
+    var kind: SharingSessionStateKind {
         switch self {
         case .notStarted: return .notStarted
         case .preflight: return .preflight
-        case .readyToPresent: return .readyToPresent
-        case .presentingEngagement: return .presentingEngagement
-        case .processingEstablishment: return .processingEstablishment
+        case .bleReadyToPresent: return .bleReadyToPresent
+        case .blePresentingEngagement: return .blePresentingEngagement
+        case .bleProcessingEstablishment: return .bleProcessingEstablishment
         case .awaitingUserConsent: return .awaitingUserConsent
         case .processingResponse: return .processingResponse
         case .success: return .success
@@ -51,13 +53,13 @@ public enum HolderSessionState: Equatable, Hashable, Sendable {
         }
     }
 
-    var legalStateTransitions: [HolderSessionStateKind: [HolderSessionStateKind]] {
+    var legalStateTransitions: [SharingSessionStateKind: [SharingSessionStateKind]] {
         [
-            .notStarted: [.preflight, .readyToPresent, .failed, .cancelled],
-            .preflight: [.preflight, .readyToPresent, .failed, .cancelled],
-            .readyToPresent: [.presentingEngagement, .failed, .cancelled],
-            .presentingEngagement: [.processingEstablishment, .failed, .cancelled],
-            .processingEstablishment: [.awaitingUserConsent, .failed, .cancelled],
+            .notStarted: [.preflight, .bleReadyToPresent, .failed, .cancelled],
+            .preflight: [.preflight, .bleReadyToPresent, .failed, .cancelled],
+            .bleReadyToPresent: [.blePresentingEngagement, .failed, .cancelled],
+            .blePresentingEngagement: [.bleProcessingEstablishment, .failed, .cancelled],
+            .bleProcessingEstablishment: [.awaitingUserConsent, .failed, .cancelled],
             .awaitingUserConsent: [.processingResponse, .failed, .cancelled],
             .processingResponse: [.success, .failed, .cancelled],
             .success: [],
@@ -67,12 +69,12 @@ public enum HolderSessionState: Equatable, Hashable, Sendable {
     }
 }
 
-enum HolderSessionStateKind: String, Hashable {
+enum SharingSessionStateKind: String, Hashable {
     case notStarted
     case preflight
-    case readyToPresent
-    case presentingEngagement
-    case processingEstablishment
+    case bleReadyToPresent
+    case blePresentingEngagement
+    case bleProcessingEstablishment
     case awaitingUserConsent
     case processingResponse
     case success
@@ -82,9 +84,9 @@ enum HolderSessionStateKind: String, Hashable {
 
 // MARK: - State Transitions
 
-extension HolderSessionState {
+extension SharingSessionState {
     /// Defines whether the current state can transition to the next state.
-    func canTransition(to nextState: HolderSessionState) -> Bool {
+    func canTransition(to nextState: SharingSessionState) -> Bool {
         guard let transitions = legalStateTransitions[self.kind] else {
             print("Error: Missing transition entry for \(self.kind)")
             return false
@@ -93,9 +95,9 @@ extension HolderSessionState {
     }
 }
 
-enum HolderSessionTransitionError: LocalizedError, Equatable {
-    case invalidTransition(from: HolderSessionState, to: HolderSessionState? = nil)
-    
+enum SharingSessionTransitionError: LocalizedError, Equatable {
+    case invalidTransition(from: SharingSessionState, to: SharingSessionState? = nil)
+
     var errorDescription: String? {
         switch self {
         case .invalidTransition(from: let from, to: let to):

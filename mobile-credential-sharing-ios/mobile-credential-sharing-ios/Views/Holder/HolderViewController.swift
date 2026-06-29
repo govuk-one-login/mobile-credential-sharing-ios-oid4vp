@@ -40,7 +40,7 @@ class HolderViewController: UITableViewController {
                 self?.dismiss(animated: true)
             }
         )
-        let journeyVC = presenter.viewControllerForSharingJourney()
+        let journeyVC = presenter.viewControllerForBLESharingJourney()
         present(journeyVC, animated: true)
     }
 }

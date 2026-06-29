@@ -61,7 +61,7 @@ struct HolderContainerTests {
     func renderTriggersPreflightView() async throws {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
-        let state = HolderSessionState.preflight(
+        let state = SharingSessionState.preflight(
             missingPrerequisites: [MissingPrerequisite.bluetooth(.authorizationNotDetermined)],
         )
         let baseNavigationController = UINavigationController(
@@ -83,7 +83,7 @@ struct HolderContainerTests {
         )
     }
     
-    @Test("orchestrator didUpdateState .processingEstablishment pushes LoadingViewController")
+    @Test("orchestrator didUpdateState .bleProcessingEstablishment pushes LoadingViewController")
     func processingEngagementPushesLoadingViewController() throws {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
@@ -92,7 +92,7 @@ struct HolderContainerTests {
         _ = baseNavigationController.view
 
         // When
-        sut.orchestrator(didUpdateState: .processingEstablishment)
+        sut.orchestrator(didUpdateState: .bleProcessingEstablishment)
 
         // Then
         let navigationController = try #require(sut.navigationController)
@@ -104,7 +104,7 @@ struct HolderContainerTests {
     func renderPermissionsDeniedTriggersErrorView() async throws {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
-        let state = HolderSessionState.failed(.generic("Mock error description"))
+        let state = SharingSessionState.failed(.generic("Mock error description"))
         let baseNavigationController = UINavigationController(
             rootViewController: sut
         )
@@ -177,12 +177,12 @@ struct HolderContainerTests {
         #expect(label.text == "Something went wrong. Try again later.")
     }
     
-    @Test("orchestrator didUpdateState .presentingEngagement triggers QRCodeViewController")
+    @Test("orchestrator didUpdateState .blePresentingEngagement triggers QRCodeViewController")
     func renderTriggersQRCodeView() async throws {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
         let qrCode = try QRGenerator(data: Data()).generateQRCode()
-        let state = HolderSessionState.presentingEngagement(qrCode: qrCode)
+        let state = SharingSessionState.blePresentingEngagement(qrCode: qrCode)
         let baseNavigationController = UINavigationController(
             rootViewController: sut
         )
@@ -207,7 +207,7 @@ struct HolderContainerTests {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
         let deviceRequest = try createDeviceRequest()
-        let state = HolderSessionState.awaitingUserConsent(deviceRequest)
+        let state = SharingSessionState.awaitingUserConsent(deviceRequest)
         let baseNavigationController = UINavigationController(
             rootViewController: sut
         )
@@ -264,7 +264,7 @@ struct HolderContainerTests {
     func renderDismissesNavigation() async throws {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
-        let state = HolderSessionState.cancelled
+        let state = SharingSessionState.cancelled
         let baseMockNavigationController = MockNavigationController(
             rootViewController: sut
         )

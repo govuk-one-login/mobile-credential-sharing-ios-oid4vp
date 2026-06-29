@@ -2,18 +2,18 @@ import SharingBluetoothTransport
 import SharingCryptoService
 import UIKit
 
-// MARK: - HolderSession protocol
-public protocol HolderSessionProtocol: CryptoHolderSessionProtocol, BluetoothSessionProtocol, CredentialSessionProtocol, Sendable {
+// MARK: - BLEHolderSession protocol
+public protocol BLEHolderSessionProtocol: CryptoHolderSessionProtocol, BluetoothSessionProtocol, CredentialSessionProtocol, Sendable {
     /// The current position of the User within the User journey.
-    var currentState: HolderSessionState { get }
+    var currentState: SharingSessionState { get }
 
     /// Transition to a new state.
-    func transition(to state: HolderSessionState) throws
+    func transition(to state: SharingSessionState) throws
 }
 
-// MARK: - HolderSession
-public final class HolderSession: HolderSessionProtocol, Equatable, @unchecked Sendable {
-    public var currentState: HolderSessionState = .notStarted
+// MARK: - BLEHolderSession
+public final class BLEHolderSession: BLEHolderSessionProtocol, Equatable, @unchecked Sendable {
+    public var currentState: SharingSessionState = .notStarted
     
     // CryptoHolderSessionProtocol variables
     private(set) public var cryptoContext: CryptoContext?
@@ -35,13 +35,13 @@ public final class HolderSession: HolderSessionProtocol, Equatable, @unchecked S
     private(set) public var matchedCredential: Credential?
     private(set) public var issuerSigned: IssuerSigned?
 
-    init(_ initialState: HolderSessionState = .notStarted) {
+    public init(_ initialState: SharingSessionState = .notStarted) {
         self.currentState = initialState
     }
 
-    public func transition(to state: HolderSessionState) throws {
+    public func transition(to state: SharingSessionState) throws {
         guard currentState.canTransition(to: state) else {
-            throw HolderSessionTransitionError.invalidTransition(
+            throw SharingSessionTransitionError.invalidTransition(
                 from: currentState,
                 to: state
             )
@@ -51,15 +51,15 @@ public final class HolderSession: HolderSessionProtocol, Equatable, @unchecked S
         print("State transitioned to: \(currentState)")
     }
 
-    public static func == (lhs: HolderSession, rhs: HolderSession) -> Bool {
+    public static func == (lhs: BLEHolderSession, rhs: BLEHolderSession) -> Bool {
         lhs.currentState == rhs.currentState
     }
 }
 
 // MARK: - CryptoHolderSessionProtocol
-extension HolderSession: CryptoHolderSessionProtocol {
+extension BLEHolderSession: CryptoHolderSessionProtocol {
     public func setEngagement(cryptoContext: CryptoContext, qrCode: UIImage) throws {
-        guard self.currentState.kind == .readyToPresent else {
+        guard self.currentState.kind == .bleReadyToPresent else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         self.cryptoContext = cryptoContext
@@ -68,7 +68,7 @@ extension HolderSession: CryptoHolderSessionProtocol {
     }
     
     public func setSKDeviceKey(_ key: [UInt8]) throws {
-        guard self.currentState.kind == .processingEstablishment else {
+        guard self.currentState.kind == .bleProcessingEstablishment else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         self.cryptoContext?.skDeviceKey = key
@@ -78,7 +78,7 @@ extension HolderSession: CryptoHolderSessionProtocol {
         sessionTranscript: SessionTranscript,
         docType: DocType
     ) throws {
-        guard self.currentState.kind == .processingEstablishment else {
+        guard self.currentState.kind == .bleProcessingEstablishment else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         self.sessionTranscript = sessionTranscript
@@ -109,9 +109,9 @@ extension HolderSession: CryptoHolderSessionProtocol {
 }
 
 // MARK: - BluetoothSessionProtocol
-extension HolderSession: BluetoothSessionProtocol {
+extension BLEHolderSession: BluetoothSessionProtocol {
     public func setConnection(_ connectionHandle: ConnectionHandle) throws {
-        guard self.currentState.kind == .readyToPresent else {
+        guard self.currentState.kind == .bleReadyToPresent else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         self.connectionHandle = connectionHandle
@@ -119,11 +119,11 @@ extension HolderSession: BluetoothSessionProtocol {
 }
 
 // MARK: - CredentialSessionProtocol
-extension HolderSession: CredentialSessionProtocol {
+extension BLEHolderSession: CredentialSessionProtocol {
     public func setMatchedCredential(
         _ credential: Credential
     ) throws {
-        guard self.currentState.kind == .processingEstablishment else {
+        guard self.currentState.kind == .bleProcessingEstablishment else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         
@@ -131,7 +131,7 @@ extension HolderSession: CredentialSessionProtocol {
     }
     
     public func setIssuerSigned(_ issuerSigned: SharingCryptoService.IssuerSigned) throws {
-        guard self.currentState.kind == .processingEstablishment else {
+        guard self.currentState.kind == .bleProcessingEstablishment else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         
