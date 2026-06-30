@@ -40,7 +40,7 @@ struct ISOHolderSessionTests {
     func invalidTransitionThrows() async {
         let session = ISOHolderSession(.notStarted)
 
-        #expect(throws: SharingSessionTransitionError.self) {
+        #expect(throws: HolderSessionTransitionError.self) {
             try session.transition(to: .isoProcessingEstablishment)
         }
     }
@@ -50,7 +50,7 @@ struct ISOHolderSessionTests {
         let session = ISOHolderSession(.processingResponse)
 
         await #expect(
-            throws: SharingSessionTransitionError.invalidTransition(
+            throws: HolderSessionTransitionError.invalidTransition(
                 from: .processingResponse,
                 to: .isoProcessingEstablishment
             )
@@ -77,7 +77,7 @@ struct ISOHolderSessionTests {
         let session = ISOHolderSession()
 
         #expect(session.currentState == .notStarted)
-        #expect(throws: SharingSessionTransitionError.self) {
+        #expect(throws: HolderSessionTransitionError.self) {
             try session.transition(to: .isoProcessingEstablishment)
         }
         #expect(session.currentState == .notStarted)
@@ -87,12 +87,12 @@ struct ISOHolderSessionTests {
 
     @Test("Transition error is Equatable")
     func transitionErrorIsEquatable() {
-        let error1 = SharingSessionTransitionError.invalidTransition(
+        let error1 = HolderSessionTransitionError.invalidTransition(
             from: .notStarted,
             to: .preflight(missingPrerequisites: [])
         )
 
-        let error2 = SharingSessionTransitionError.invalidTransition(
+        let error2 = HolderSessionTransitionError.invalidTransition(
             from: .notStarted,
             to: .preflight(missingPrerequisites: [])
         )
@@ -102,8 +102,8 @@ struct ISOHolderSessionTests {
 
     @Test("SharingSessionState preflight is Equatable")
     func preflightStateIsEquatable() {
-        let a = SharingSessionState.preflight(missingPrerequisites: [MissingPrerequisite.bluetooth(.authorizationNotDetermined)])
-        let b = SharingSessionState.preflight(missingPrerequisites: [MissingPrerequisite.bluetooth(.authorizationNotDetermined)])
+        let a = HolderSessionState.preflight(missingPrerequisites: [MissingPrerequisite.bluetooth(.authorizationNotDetermined)])
+        let b = HolderSessionState.preflight(missingPrerequisites: [MissingPrerequisite.bluetooth(.authorizationNotDetermined)])
 
         #expect(a == b)
     }
@@ -118,21 +118,21 @@ struct ISOHolderSessionTests {
 
     @Test("All SharingSessionStateKinds are mapped correctly")
     func holderSessionStateKindMapping() throws {
-        #expect(SharingSessionState.notStarted.kind == .notStarted)
-        #expect(SharingSessionState.preflight(missingPrerequisites: []).kind == .preflight)
-        #expect(SharingSessionState.isoReadyToPresent.kind == .isoReadyToPresent)
-        #expect(SharingSessionState.isoPresentingEngagement(qrCode: UIImage()).kind == .isoPresentingEngagement)
-        #expect(SharingSessionState.isoProcessingEstablishment.kind == .isoProcessingEstablishment)
-        #expect(SharingSessionState.awaitingUserConsent(try createMockDeviceRequest()).kind == .awaitingUserConsent)
-        #expect(SharingSessionState.processingResponse.kind == .processingResponse)
-        #expect(SharingSessionState.success.kind == .success)
-        #expect(SharingSessionState.failed(SessionError.unknown).kind == .failed)
-        #expect(SharingSessionState.cancelled.kind == .cancelled)
+        #expect(HolderSessionState.notStarted.kind == .notStarted)
+        #expect(HolderSessionState.preflight(missingPrerequisites: []).kind == .preflight)
+        #expect(HolderSessionState.isoReadyToPresent.kind == .isoReadyToPresent)
+        #expect(HolderSessionState.isoPresentingEngagement(qrCode: UIImage()).kind == .isoPresentingEngagement)
+        #expect(HolderSessionState.isoProcessingEstablishment.kind == .isoProcessingEstablishment)
+        #expect(HolderSessionState.awaitingUserConsent(try createMockDeviceRequest()).kind == .awaitingUserConsent)
+        #expect(HolderSessionState.processingResponse.kind == .processingResponse)
+        #expect(HolderSessionState.success.kind == .success)
+        #expect(HolderSessionState.failed(SessionError.unknown).kind == .failed)
+        #expect(HolderSessionState.cancelled.kind == .cancelled)
     }
 
     @Test("Complete state has no legal transitions")
     func completeStateHasNoLegalTransitions() {
-        let state = SharingSessionState.failed(.unrecoverablePrerequisite(.bluetooth(.statePoweredOff)))
+        let state = HolderSessionState.failed(.unrecoverablePrerequisite(.bluetooth(.statePoweredOff)))
 
         #expect(
             state.legalStateTransitions[state.kind] == []
@@ -141,7 +141,7 @@ struct ISOHolderSessionTests {
 
     @Test("Unknown transition kind lookup returns false")
     func canTransitionReturnsFalseWhenNoEntryExists() {
-        let state = SharingSessionState.notStarted
+        let state = HolderSessionState.notStarted
         let result = state.legalStateTransitions[.isoProcessingEstablishment]?.contains(.notStarted)
         #expect(result != nil)
         #expect(result == false)
@@ -149,7 +149,7 @@ struct ISOHolderSessionTests {
 
     @Test("SharingSessionState is Hashable")
     func holderSessionStateIsHashable() {
-        let set: Set<SharingSessionState> = [
+        let set: Set<HolderSessionState> = [
             .notStarted,
             .preflight(missingPrerequisites: [])
         ]

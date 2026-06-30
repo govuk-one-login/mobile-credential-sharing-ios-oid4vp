@@ -379,7 +379,7 @@ public class ISOHolderOrchestrator: ISOHolderOrchestratorProtocol {
 // MARK: - BluetoothTransport Delegate
 extension ISOHolderOrchestrator: @MainActor BluetoothTransportDelegate {
     public func bluetoothTransportDidPowerOn() {
-        // This delegate function is not used by the BLEHolderOrchestrator
+        // This delegate function is not used by the ISOHolderOrchestrator
     }
     
     public func bluetoothTransportDidFail(with error: BluetoothTransportError) {
@@ -395,7 +395,7 @@ extension ISOHolderOrchestrator: @MainActor BluetoothTransportDelegate {
     }
 
     public func bluetoothTransportDidDiscover() {
-        // This delegate function is not used by the BLEHolderOrchestrator
+        // This delegate function is not used by the ISOHolderOrchestrator
     }
     
     public func bluetoothTransportDidReceiveMessageData(_ messageData: Data) {

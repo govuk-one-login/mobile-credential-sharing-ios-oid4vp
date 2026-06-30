@@ -40,7 +40,7 @@ class HolderContainer: UIViewController {
 }
 
 extension HolderContainer: @MainActor HolderOrchestratorDelegate {
-    func orchestrator(didUpdateState state: SharingSessionState?) {
+    func orchestrator(didUpdateState state: HolderSessionState?) {
         guard let state = state else {
             navigateToErrorView(
                 error: .generic("Something went wrong. Try again later.")

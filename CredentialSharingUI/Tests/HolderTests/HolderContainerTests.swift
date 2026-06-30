@@ -61,7 +61,7 @@ struct HolderContainerTests {
     func renderTriggersPreflightView() async throws {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
-        let state = SharingSessionState.preflight(
+        let state = HolderSessionState.preflight(
             missingPrerequisites: [MissingPrerequisite.bluetooth(.authorizationNotDetermined)],
         )
         let baseNavigationController = UINavigationController(
@@ -104,7 +104,7 @@ struct HolderContainerTests {
     func renderPermissionsDeniedTriggersErrorView() async throws {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
-        let state = SharingSessionState.failed(.generic("Mock error description"))
+        let state = HolderSessionState.failed(.generic("Mock error description"))
         let baseNavigationController = UINavigationController(
             rootViewController: sut
         )
@@ -182,7 +182,7 @@ struct HolderContainerTests {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
         let qrCode = try QRGenerator(data: Data()).generateQRCode()
-        let state = SharingSessionState.isoPresentingEngagement(qrCode: qrCode)
+        let state = HolderSessionState.isoPresentingEngagement(qrCode: qrCode)
         let baseNavigationController = UINavigationController(
             rootViewController: sut
         )
@@ -207,7 +207,7 @@ struct HolderContainerTests {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
         let deviceRequest = try createDeviceRequest()
-        let state = SharingSessionState.awaitingUserConsent(deviceRequest)
+        let state = HolderSessionState.awaitingUserConsent(deviceRequest)
         let baseNavigationController = UINavigationController(
             rootViewController: sut
         )
@@ -264,7 +264,7 @@ struct HolderContainerTests {
     func renderDismissesNavigation() async throws {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
-        let state = SharingSessionState.cancelled
+        let state = HolderSessionState.cancelled
         let baseMockNavigationController = MockNavigationController(
             rootViewController: sut
         )

@@ -2,9 +2,9 @@ import SharingCryptoService
 import SharingPrerequisiteGate
 import UIKit
 
-// MARK: - SharingSessionState
+// MARK: - HolderSessionState
 
-public enum SharingSessionState: Equatable, Hashable, Sendable {
+public enum HolderSessionState: Equatable, Hashable, Sendable {
 
     /// Null-value object declaring that a User hasn't started a journey yet.
     case notStarted
@@ -12,7 +12,7 @@ public enum SharingSessionState: Equatable, Hashable, Sendable {
     /// Device is checking prerequisites for the journey.
     case preflight(missingPrerequisites: [MissingPrerequisite])
 
-    // BLE-specific states
+    // ISO-specific states
     /// Device is ready to present encoded engagement data.
     case isoReadyToPresent
 
@@ -38,7 +38,7 @@ public enum SharingSessionState: Equatable, Hashable, Sendable {
     /// Journey has been cancelled by either Holder or Verifier
     case cancelled
 
-    var kind: SharingSessionStateKind {
+    var kind: HolderSessionStateKind {
         switch self {
         case .notStarted: return .notStarted
         case .preflight: return .preflight
@@ -53,7 +53,7 @@ public enum SharingSessionState: Equatable, Hashable, Sendable {
         }
     }
 
-    var legalStateTransitions: [SharingSessionStateKind: [SharingSessionStateKind]] {
+    var legalStateTransitions: [HolderSessionStateKind: [HolderSessionStateKind]] {
         [
             .notStarted: [.preflight, .isoReadyToPresent, .failed, .cancelled],
             .preflight: [.preflight, .isoReadyToPresent, .failed, .cancelled],
@@ -69,7 +69,7 @@ public enum SharingSessionState: Equatable, Hashable, Sendable {
     }
 }
 
-enum SharingSessionStateKind: String, Hashable {
+enum HolderSessionStateKind: String, Hashable {
     case notStarted
     case preflight
     case isoReadyToPresent
@@ -84,9 +84,9 @@ enum SharingSessionStateKind: String, Hashable {
 
 // MARK: - State Transitions
 
-extension SharingSessionState {
+extension HolderSessionState {
     /// Defines whether the current state can transition to the next state.
-    func canTransition(to nextState: SharingSessionState) -> Bool {
+    func canTransition(to nextState: HolderSessionState) -> Bool {
         guard let transitions = legalStateTransitions[self.kind] else {
             print("Error: Missing transition entry for \(self.kind)")
             return false
@@ -95,8 +95,8 @@ extension SharingSessionState {
     }
 }
 
-enum SharingSessionTransitionError: LocalizedError, Equatable {
-    case invalidTransition(from: SharingSessionState, to: SharingSessionState? = nil)
+enum HolderSessionTransitionError: LocalizedError, Equatable {
+    case invalidTransition(from: HolderSessionState, to: HolderSessionState? = nil)
 
     var errorDescription: String? {
         switch self {

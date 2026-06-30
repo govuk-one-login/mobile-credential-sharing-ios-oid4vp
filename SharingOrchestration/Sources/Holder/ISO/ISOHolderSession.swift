@@ -2,18 +2,18 @@ import SharingBluetoothTransport
 import SharingCryptoService
 import UIKit
 
-// MARK: - BLEHolderSession protocol
+// MARK: - ISOHolderSession protocol
 public protocol ISOHolderSessionProtocol: CryptoHolderSessionProtocol, BluetoothSessionProtocol, CredentialSessionProtocol, Sendable {
     /// The current position of the User within the User journey.
-    var currentState: SharingSessionState { get }
+    var currentState: HolderSessionState { get }
 
     /// Transition to a new state.
-    func transition(to state: SharingSessionState) throws
+    func transition(to state: HolderSessionState) throws
 }
 
-// MARK: - BLEHolderSession
+// MARK: - ISOHolderSession
 public final class ISOHolderSession: ISOHolderSessionProtocol, Equatable, @unchecked Sendable {
-    public var currentState: SharingSessionState = .notStarted
+    public var currentState: HolderSessionState = .notStarted
     
     // CryptoHolderSessionProtocol variables
     private(set) public var cryptoContext: CryptoContext?
@@ -35,13 +35,13 @@ public final class ISOHolderSession: ISOHolderSessionProtocol, Equatable, @unche
     private(set) public var matchedCredential: Credential?
     private(set) public var issuerSigned: IssuerSigned?
 
-    public init(_ initialState: SharingSessionState = .notStarted) {
+    public init(_ initialState: HolderSessionState = .notStarted) {
         self.currentState = initialState
     }
 
-    public func transition(to state: SharingSessionState) throws {
+    public func transition(to state: HolderSessionState) throws {
         guard currentState.canTransition(to: state) else {
-            throw SharingSessionTransitionError.invalidTransition(
+            throw HolderSessionTransitionError.invalidTransition(
                 from: currentState,
                 to: state
             )

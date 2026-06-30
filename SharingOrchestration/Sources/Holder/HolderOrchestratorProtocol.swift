@@ -10,7 +10,7 @@ public protocol HolderOrchestratorProtocol: AnyObject {
 }
 
 public protocol HolderOrchestratorDelegate: AnyObject {
-    func orchestrator(didUpdateState state: SharingSessionState?)
+    func orchestrator(didUpdateState state: HolderSessionState?)
 }
 
 @MainActor
