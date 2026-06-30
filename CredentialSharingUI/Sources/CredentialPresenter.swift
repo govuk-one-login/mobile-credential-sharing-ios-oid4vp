@@ -9,7 +9,7 @@ public class CredentialPresenter {
     private let credentialProvider: CredentialProvider
     private let logger: AnalyticsService?
     private let completion: () -> Void
-    private var orchestrator: any BLEHolderOrchestratorProtocol
+    private var orchestrator: any ISOHolderOrchestratorProtocol
 
     /// Initialises the Holder module with a credential provider.
     /// - Parameters:
@@ -25,7 +25,7 @@ public class CredentialPresenter {
         self.logger = logger
         self.completion = completion
         let handler = CredentialRequestHandler(credentialProvider: credentialProvider)
-        self.orchestrator = BLEHolderOrchestrator(credentialRequestHandler: handler)
+        self.orchestrator = ISOHolderOrchestrator(credentialRequestHandler: handler)
     }
 
     /// Returns a view controller that manages the BLE sharing journey.

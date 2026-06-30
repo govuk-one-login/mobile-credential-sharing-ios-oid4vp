@@ -5,10 +5,10 @@ import UIKit
 @MainActor
 class HolderContainer: UIViewController {
     static let activityIndicatorIdentifier = "HolderContainerActivityIndicator"
-    var orchestrator: any BLEHolderOrchestratorProtocol
+    var orchestrator: any ISOHolderOrchestratorProtocol
     let activityIndicator = UIActivityIndicatorView(style: .large)
 
-    init(orchestrator: any BLEHolderOrchestratorProtocol) {
+    init(orchestrator: any ISOHolderOrchestratorProtocol) {
         self.orchestrator = orchestrator
         super.init(nibName: nil, bundle: nil)
         self.orchestrator.delegate = self
@@ -39,7 +39,7 @@ class HolderContainer: UIViewController {
     }
 }
 
-extension HolderContainer: @MainActor SharingOrchestratorDelegate {
+extension HolderContainer: @MainActor HolderOrchestratorDelegate {
     func orchestrator(didUpdateState state: SharingSessionState?) {
         guard let state = state else {
             navigateToErrorView(
@@ -52,11 +52,11 @@ extension HolderContainer: @MainActor SharingOrchestratorDelegate {
             break
         case .preflight(missingPrerequisites: let missingPrerequisites):
             renderPreflightUI(for: missingPrerequisites)
-        case .bleReadyToPresent:
+        case .isoReadyToPresent:
             break
-        case .blePresentingEngagement(let qrCode):
+        case .isoPresentingEngagement(let qrCode):
             renderQRCodeUI(with: qrCode)
-        case .bleProcessingEstablishment:
+        case .isoProcessingEstablishment:
             navigateTo(LoadingViewController())
         case .awaitingUserConsent(let deviceRequest):
             navigateTo(ConsentViewController(deviceRequest: deviceRequest, orchestrator: orchestrator))

@@ -92,7 +92,7 @@ struct HolderContainerTests {
         _ = baseNavigationController.view
 
         // When
-        sut.orchestrator(didUpdateState: .bleProcessingEstablishment)
+        sut.orchestrator(didUpdateState: .isoProcessingEstablishment)
 
         // Then
         let navigationController = try #require(sut.navigationController)
@@ -182,7 +182,7 @@ struct HolderContainerTests {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
         let qrCode = try QRGenerator(data: Data()).generateQRCode()
-        let state = SharingSessionState.blePresentingEngagement(qrCode: qrCode)
+        let state = SharingSessionState.isoPresentingEngagement(qrCode: qrCode)
         let baseNavigationController = UINavigationController(
             rootViewController: sut
         )

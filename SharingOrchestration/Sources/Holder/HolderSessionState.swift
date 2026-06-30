@@ -14,13 +14,13 @@ public enum SharingSessionState: Equatable, Hashable, Sendable {
 
     // BLE-specific states
     /// Device is ready to present encoded engagement data.
-    case bleReadyToPresent
+    case isoReadyToPresent
 
     /// Device is actively presenting engagement data.
-    case blePresentingEngagement(qrCode: UIImage)
+    case isoPresentingEngagement(qrCode: UIImage)
 
     /// Device has established initial connection to a verifier
-    case bleProcessingEstablishment
+    case isoProcessingEstablishment
 
     // Common states
     /// A request has been received & validated, awaiting users consent to share.
@@ -42,9 +42,9 @@ public enum SharingSessionState: Equatable, Hashable, Sendable {
         switch self {
         case .notStarted: return .notStarted
         case .preflight: return .preflight
-        case .bleReadyToPresent: return .bleReadyToPresent
-        case .blePresentingEngagement: return .blePresentingEngagement
-        case .bleProcessingEstablishment: return .bleProcessingEstablishment
+        case .isoReadyToPresent: return .isoReadyToPresent
+        case .isoPresentingEngagement: return .isoPresentingEngagement
+        case .isoProcessingEstablishment: return .isoProcessingEstablishment
         case .awaitingUserConsent: return .awaitingUserConsent
         case .processingResponse: return .processingResponse
         case .success: return .success
@@ -55,11 +55,11 @@ public enum SharingSessionState: Equatable, Hashable, Sendable {
 
     var legalStateTransitions: [SharingSessionStateKind: [SharingSessionStateKind]] {
         [
-            .notStarted: [.preflight, .bleReadyToPresent, .failed, .cancelled],
-            .preflight: [.preflight, .bleReadyToPresent, .failed, .cancelled],
-            .bleReadyToPresent: [.blePresentingEngagement, .failed, .cancelled],
-            .blePresentingEngagement: [.bleProcessingEstablishment, .failed, .cancelled],
-            .bleProcessingEstablishment: [.awaitingUserConsent, .failed, .cancelled],
+            .notStarted: [.preflight, .isoReadyToPresent, .failed, .cancelled],
+            .preflight: [.preflight, .isoReadyToPresent, .failed, .cancelled],
+            .isoReadyToPresent: [.isoPresentingEngagement, .failed, .cancelled],
+            .isoPresentingEngagement: [.isoProcessingEstablishment, .failed, .cancelled],
+            .isoProcessingEstablishment: [.awaitingUserConsent, .failed, .cancelled],
             .awaitingUserConsent: [.processingResponse, .failed, .cancelled],
             .processingResponse: [.success, .failed, .cancelled],
             .success: [],
@@ -72,9 +72,9 @@ public enum SharingSessionState: Equatable, Hashable, Sendable {
 enum SharingSessionStateKind: String, Hashable {
     case notStarted
     case preflight
-    case bleReadyToPresent
-    case blePresentingEngagement
-    case bleProcessingEstablishment
+    case isoReadyToPresent
+    case isoPresentingEngagement
+    case isoProcessingEstablishment
     case awaitingUserConsent
     case processingResponse
     case success

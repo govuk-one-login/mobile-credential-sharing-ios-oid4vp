@@ -2,19 +2,19 @@ import Foundation
 import SharingPrerequisiteGate
 
 @MainActor
-public protocol SharingOrchestratorProtocol: AnyObject {
-    var delegate: SharingOrchestratorDelegate? { get set }
+public protocol HolderOrchestratorProtocol: AnyObject {
+    var delegate: HolderOrchestratorDelegate? { get set }
     func userDidApprove()
     func userDidDeny()
     func cancel()
 }
 
-public protocol SharingOrchestratorDelegate: AnyObject {
+public protocol HolderOrchestratorDelegate: AnyObject {
     func orchestrator(didUpdateState state: SharingSessionState?)
 }
 
 @MainActor
-public protocol BLEHolderOrchestratorProtocol: SharingOrchestratorProtocol {
+public protocol ISOHolderOrchestratorProtocol: HolderOrchestratorProtocol {
     func startPresentation()
     func resolve(_ missingPrerequisite: MissingPrerequisite)
 }

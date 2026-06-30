@@ -1,6 +1,6 @@
 import SharingOrchestration
 
-class MockHolderOrchestratorDelegate: SharingOrchestratorDelegate {
+class MockHolderOrchestratorDelegate: HolderOrchestratorDelegate {
     var stateToRender: SharingSessionState?
 
     func orchestrator(didUpdateState state: SharingSessionState?) {

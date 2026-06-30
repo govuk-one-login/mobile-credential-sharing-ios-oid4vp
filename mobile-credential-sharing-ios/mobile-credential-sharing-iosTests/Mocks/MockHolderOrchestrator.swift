@@ -1,10 +1,10 @@
 import SharingOrchestration
 import SharingPrerequisiteGate
 
-class MockHolderOrchestrator: BLEHolderOrchestratorProtocol {
-    weak var delegate: (any SharingOrchestratorDelegate)?
+class MockHolderOrchestrator: ISOHolderOrchestratorProtocol {
+    weak var delegate: (any HolderOrchestratorDelegate)?
 
-    var session: BLEHolderSession?
+    var session: ISOHolderSession?
     var startPresentationCalled = false
     var cancelPresentationCalled = false
 

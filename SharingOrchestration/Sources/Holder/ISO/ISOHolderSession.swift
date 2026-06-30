@@ -3,7 +3,7 @@ import SharingCryptoService
 import UIKit
 
 // MARK: - BLEHolderSession protocol
-public protocol BLEHolderSessionProtocol: CryptoHolderSessionProtocol, BluetoothSessionProtocol, CredentialSessionProtocol, Sendable {
+public protocol ISOHolderSessionProtocol: CryptoHolderSessionProtocol, BluetoothSessionProtocol, CredentialSessionProtocol, Sendable {
     /// The current position of the User within the User journey.
     var currentState: SharingSessionState { get }
 
@@ -12,7 +12,7 @@ public protocol BLEHolderSessionProtocol: CryptoHolderSessionProtocol, Bluetooth
 }
 
 // MARK: - BLEHolderSession
-public final class BLEHolderSession: BLEHolderSessionProtocol, Equatable, @unchecked Sendable {
+public final class ISOHolderSession: ISOHolderSessionProtocol, Equatable, @unchecked Sendable {
     public var currentState: SharingSessionState = .notStarted
     
     // CryptoHolderSessionProtocol variables
@@ -51,15 +51,15 @@ public final class BLEHolderSession: BLEHolderSessionProtocol, Equatable, @unche
         print("State transitioned to: \(currentState)")
     }
 
-    public static func == (lhs: BLEHolderSession, rhs: BLEHolderSession) -> Bool {
+    public static func == (lhs: ISOHolderSession, rhs: ISOHolderSession) -> Bool {
         lhs.currentState == rhs.currentState
     }
 }
 
 // MARK: - CryptoHolderSessionProtocol
-extension BLEHolderSession: CryptoHolderSessionProtocol {
+extension ISOHolderSession: CryptoHolderSessionProtocol {
     public func setEngagement(cryptoContext: CryptoContext, qrCode: UIImage) throws {
-        guard self.currentState.kind == .bleReadyToPresent else {
+        guard self.currentState.kind == .isoReadyToPresent else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         self.cryptoContext = cryptoContext
@@ -68,7 +68,7 @@ extension BLEHolderSession: CryptoHolderSessionProtocol {
     }
     
     public func setSKDeviceKey(_ key: [UInt8]) throws {
-        guard self.currentState.kind == .bleProcessingEstablishment else {
+        guard self.currentState.kind == .isoProcessingEstablishment else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         self.cryptoContext?.skDeviceKey = key
@@ -78,7 +78,7 @@ extension BLEHolderSession: CryptoHolderSessionProtocol {
         sessionTranscript: SessionTranscript,
         docType: DocType
     ) throws {
-        guard self.currentState.kind == .bleProcessingEstablishment else {
+        guard self.currentState.kind == .isoProcessingEstablishment else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         self.sessionTranscript = sessionTranscript
@@ -109,9 +109,9 @@ extension BLEHolderSession: CryptoHolderSessionProtocol {
 }
 
 // MARK: - BluetoothSessionProtocol
-extension BLEHolderSession: BluetoothSessionProtocol {
+extension ISOHolderSession: BluetoothSessionProtocol {
     public func setConnection(_ connectionHandle: ConnectionHandle) throws {
-        guard self.currentState.kind == .bleReadyToPresent else {
+        guard self.currentState.kind == .isoReadyToPresent else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         self.connectionHandle = connectionHandle
@@ -119,11 +119,11 @@ extension BLEHolderSession: BluetoothSessionProtocol {
 }
 
 // MARK: - CredentialSessionProtocol
-extension BLEHolderSession: CredentialSessionProtocol {
+extension ISOHolderSession: CredentialSessionProtocol {
     public func setMatchedCredential(
         _ credential: Credential
     ) throws {
-        guard self.currentState.kind == .bleProcessingEstablishment else {
+        guard self.currentState.kind == .isoProcessingEstablishment else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         
@@ -131,7 +131,7 @@ extension BLEHolderSession: CredentialSessionProtocol {
     }
     
     public func setIssuerSigned(_ issuerSigned: SharingCryptoService.IssuerSigned) throws {
-        guard self.currentState.kind == .bleProcessingEstablishment else {
+        guard self.currentState.kind == .isoProcessingEstablishment else {
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         
