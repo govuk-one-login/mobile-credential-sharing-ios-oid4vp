@@ -5,14 +5,14 @@ class MockHolderOrchestrator: HolderOrchestratorProtocol {
     weak var delegate: (any HolderOrchestratorDelegate)?
 
     var session: ISOHolderSession?
-    var startPresentationCalled = false
+    var startCalled = false
     var cancelPresentationCalled = false
     var resolveCalled = false
     var userDidApproveCalled = false
     var userDidDenyCalled = false
 
     func start() {
-        startPresentationCalled = true
+        startCalled = true
     }
 
     func resolve(_ missingPrerequisite: MissingPrerequisite) {

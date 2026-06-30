@@ -33,16 +33,16 @@ struct HolderContainerTests {
         #expect(sut.view.subviews.count == 1)
     }
     
-    @Test("startPresentation triggers orchestrator startPResentation func")
-    func startPresentationTriggersOrchestrator() {
+    @Test("start triggers orchestrator start func")
+    func startTriggersOrchestrator() {
         // Given
-        #expect(mockOrchestrator.startPresentationCalled == false)
+        #expect(mockOrchestrator.startCalled == false)
         
         // When
         sut.viewWillAppear(false)
         
         // Then
-        #expect(mockOrchestrator.startPresentationCalled == true)
+        #expect(mockOrchestrator.startCalled == true)
     }
     
     @Test("didTapCancel triggers orchestrator cancelPresentation func")
