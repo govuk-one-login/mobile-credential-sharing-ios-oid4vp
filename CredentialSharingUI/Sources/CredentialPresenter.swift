@@ -9,7 +9,7 @@ public class CredentialPresenter {
     private let credentialProvider: CredentialProvider
     private let logger: AnalyticsService?
     private let completion: () -> Void
-    private var orchestrator: any ISOHolderOrchestratorProtocol
+    private var orchestrator: any HolderOrchestratorProtocol
 
     /// Initialises the Holder module with a credential provider.
     /// - Parameters:

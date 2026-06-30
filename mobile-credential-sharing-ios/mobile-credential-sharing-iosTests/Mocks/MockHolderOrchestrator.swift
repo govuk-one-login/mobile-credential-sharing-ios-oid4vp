@@ -1,14 +1,14 @@
 import SharingOrchestration
 import SharingPrerequisiteGate
 
-class MockHolderOrchestrator: ISOHolderOrchestratorProtocol {
+class MockHolderOrchestrator: HolderOrchestratorProtocol {
     weak var delegate: (any HolderOrchestratorDelegate)?
 
     var session: ISOHolderSession?
     var startPresentationCalled = false
     var cancelPresentationCalled = false
 
-    func startPresentation() {
+    func start() {
         startPresentationCalled = true
     }
 

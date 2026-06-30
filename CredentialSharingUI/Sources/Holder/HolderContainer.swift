@@ -5,10 +5,10 @@ import UIKit
 @MainActor
 class HolderContainer: UIViewController {
     static let activityIndicatorIdentifier = "HolderContainerActivityIndicator"
-    var orchestrator: any ISOHolderOrchestratorProtocol
+    var orchestrator: any HolderOrchestratorProtocol
     let activityIndicator = UIActivityIndicatorView(style: .large)
 
-    init(orchestrator: any ISOHolderOrchestratorProtocol) {
+    init(orchestrator: any HolderOrchestratorProtocol) {
         self.orchestrator = orchestrator
         super.init(nibName: nil, bundle: nil)
         self.orchestrator.delegate = self
@@ -35,7 +35,7 @@ class HolderContainer: UIViewController {
     
     public override func viewWillAppear(_ animated: Bool) {
         activityIndicator.startAnimating()
-        orchestrator.startPresentation()
+        orchestrator.start()
     }
 }
 

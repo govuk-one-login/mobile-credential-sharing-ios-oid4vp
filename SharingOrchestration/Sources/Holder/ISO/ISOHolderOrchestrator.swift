@@ -8,7 +8,7 @@ import SwiftCBOR
 // swiftlint:disable file_length
 @MainActor
 // swiftlint:disable:next type_body_length
-public class ISOHolderOrchestrator: ISOHolderOrchestratorProtocol {
+public class ISOHolderOrchestrator: HolderOrchestratorProtocol {
     private(set) var session: ISOHolderSessionProtocol?
     public weak var delegate: HolderOrchestratorDelegate?
     
@@ -34,7 +34,7 @@ public class ISOHolderOrchestrator: ISOHolderOrchestratorProtocol {
         self.bluetoothTransport?.delegate = self
     }
     
-    public func startPresentation() {
+    public func start() {
         session = ISOHolderSession()
         print("Holder Presentation Session started")
         

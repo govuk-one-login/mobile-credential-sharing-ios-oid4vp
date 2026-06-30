@@ -4,6 +4,8 @@ import SharingPrerequisiteGate
 @MainActor
 public protocol HolderOrchestratorProtocol: AnyObject {
     var delegate: HolderOrchestratorDelegate? { get set }
+    func start()
+    func resolve(_ missingPrerequisite: MissingPrerequisite)
     func userDidApprove()
     func userDidDeny()
     func cancel()
@@ -11,10 +13,4 @@ public protocol HolderOrchestratorProtocol: AnyObject {
 
 public protocol HolderOrchestratorDelegate: AnyObject {
     func orchestrator(didUpdateState state: HolderSessionState?)
-}
-
-@MainActor
-public protocol ISOHolderOrchestratorProtocol: HolderOrchestratorProtocol {
-    func startPresentation()
-    func resolve(_ missingPrerequisite: MissingPrerequisite)
 }
