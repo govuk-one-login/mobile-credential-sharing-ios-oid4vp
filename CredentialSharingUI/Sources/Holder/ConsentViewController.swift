@@ -4,10 +4,10 @@ import UIKit
 @MainActor
 class ConsentViewController: UIViewController {
     private let deviceRequest: DeviceRequest
-    private let orchestrator: any HolerOrchestratorProtocol
+    private let orchestrator: any HolderOrchestratorProtocol
 
     init(deviceRequest: DeviceRequest,
-         orchestrator: any HolerOrchestratorProtocol
+         orchestrator: any HolderOrchestratorProtocol
     ) {
         self.deviceRequest = deviceRequest
         self.orchestrator = orchestrator
