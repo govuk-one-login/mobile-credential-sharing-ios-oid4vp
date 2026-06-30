@@ -5,11 +5,11 @@ import SharingPrerequisiteGate
 import Testing
 import UIKit
 
-// MARK: - BLEHolderSession Tests
+// MARK: - ISOHolderSession Tests
 
 // swiftlint:disable type_body_length
 // swiftlint:disable file_length
-@Suite("BLEHolderSession State Machine Tests")
+@Suite("ISOHolderSession State Machine Tests")
 struct ISOHolderSessionTests {
 
     // MARK: - Initial State
@@ -147,7 +147,7 @@ struct ISOHolderSessionTests {
         #expect(result == false)
     }
 
-    @Test("SharingSessionState is Hashable")
+    @Test("HolderSessionState is Hashable")
     func holderSessionStateIsHashable() {
         let set: Set<HolderSessionState> = [
             .notStarted,

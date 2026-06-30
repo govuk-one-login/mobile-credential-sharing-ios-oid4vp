@@ -83,7 +83,7 @@ struct HolderContainerTests {
         )
     }
     
-    @Test("orchestrator didUpdateState .bleProcessingEstablishment pushes LoadingViewController")
+    @Test("orchestrator didUpdateState .isoProcessingEstablishment pushes LoadingViewController")
     func processingEngagementPushesLoadingViewController() throws {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
@@ -177,7 +177,7 @@ struct HolderContainerTests {
         #expect(label.text == "Something went wrong. Try again later.")
     }
     
-    @Test("orchestrator didUpdateState .blePresentingEngagement triggers QRCodeViewController")
+    @Test("orchestrator didUpdateState .isoPresentingEngagement triggers QRCodeViewController")
     func renderTriggersQRCodeView() async throws {
         // Given
         let sut = HolderContainer(orchestrator: mockOrchestrator)
