@@ -36,7 +36,7 @@ struct ISOHolderSessionTests {
 
     // MARK: - Invalid Transitions
 
-    @Test("Invalid transition throws SharingSessionTransitionError")
+    @Test("Invalid transition throws HolderSessionTransitionError")
     func invalidTransitionThrows() async {
         let session = ISOHolderSession(.notStarted)
 
@@ -100,7 +100,7 @@ struct ISOHolderSessionTests {
         #expect(error1 == error2)
     }
 
-    @Test("SharingSessionState preflight is Equatable")
+    @Test("HolderSessionState preflight is Equatable")
     func preflightStateIsEquatable() {
         let a = HolderSessionState.preflight(missingPrerequisites: [MissingPrerequisite.bluetooth(.authorizationNotDetermined)])
         let b = HolderSessionState.preflight(missingPrerequisites: [MissingPrerequisite.bluetooth(.authorizationNotDetermined)])
@@ -116,7 +116,7 @@ struct ISOHolderSessionTests {
         )
     }
 
-    @Test("All SharingSessionStateKinds are mapped correctly")
+    @Test("All HolderSessionStateKinds are mapped correctly")
     func holderSessionStateKindMapping() throws {
         #expect(HolderSessionState.notStarted.kind == .notStarted)
         #expect(HolderSessionState.preflight(missingPrerequisites: []).kind == .preflight)
