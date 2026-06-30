@@ -1,6 +1,12 @@
 import Foundation
 
 public struct RemotePresentationSubmission: Encodable, Sendable, Equatable {
+    enum CodingKeys: String, CodingKey {
+        case id
+        case definitionID = "definition_id"
+        case descriptorMap = "descriptor_map"
+    }
+    
     public let id: String
     public let definitionID: String
     public let descriptorMap: [DescriptorMapEntry]
@@ -13,12 +19,6 @@ public struct RemotePresentationSubmission: Encodable, Sendable, Equatable {
         self.id = id
         self.definitionID = definitionID
         self.descriptorMap = descriptorMap
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case definitionID = "definition_id"
-        case descriptorMap = "descriptor_map"
     }
 }
 
