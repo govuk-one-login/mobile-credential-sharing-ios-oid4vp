@@ -35,7 +35,7 @@ public final class ISOHolderSession: ISOHolderSessionProtocol, Equatable, @unche
     private(set) public var matchedCredential: Credential?
     private(set) public var issuerSigned: IssuerSigned?
 
-    public init(_ initialState: HolderSessionState = .notStarted) {
+    init(_ initialState: HolderSessionState = .notStarted) {
         self.currentState = initialState
     }
 
