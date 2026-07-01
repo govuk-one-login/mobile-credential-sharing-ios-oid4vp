@@ -1,6 +1,6 @@
 import Foundation
 
-public enum VPValidationError: Error, Sendable, Equatable {
+public enum ValidationError: Error, Sendable, Equatable {
     // MARK: - URI Parsing
 
     case missingScheme

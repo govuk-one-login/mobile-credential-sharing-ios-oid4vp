@@ -17,11 +17,9 @@ public enum ClientIdentifierPrefix: Sendable, Equatable {
             ("verifier_attestation:", { .verifierAttestation(identifier: $0) })
         ]
 
-        for (prefix, factory) in knownPrefixes {
-            if clientID.hasPrefix(prefix) {
-                let identifier = String(clientID.dropFirst(prefix.count))
-                return factory(identifier)
-            }
+        for (prefix, factory) in knownPrefixes where clientID.hasPrefix(prefix) {
+            let identifier = String(clientID.dropFirst(prefix.count))
+            return factory(identifier)
         }
 
         return .preRegistered(fullClientID: clientID)

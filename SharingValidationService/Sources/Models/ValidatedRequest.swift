@@ -1,6 +1,6 @@
 import Foundation
 
-public struct VPValidatedRequest: Sendable, Equatable {
+public struct ValidatedRequest: Sendable, Equatable {
     public let dcqlQuery: DCQLQuery
     public let responseURI: URL
     public let state: String?

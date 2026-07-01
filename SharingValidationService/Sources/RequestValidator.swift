@@ -1,12 +1,13 @@
 import Foundation
 
-public struct VPRequestValidator {
+public struct RequestValidator {
     public init() {}
 
+    // swiftlint:disable:next function_body_length
     public func validate(
-        requestObject: VPVerifiedRequestObject,
+        requestObject: VerifiedRequestObject,
         uriMetadata: URIMetadata
-    ) throws(VPValidationError) -> VPValidatedRequest {
+    ) throws(ValidationError) -> ValidatedRequest {
         guard requestObject.headerTyp == "oauth-authz-req+jwt" else {
             throw .invalidTypHeader(requestObject.headerTyp)
         }
@@ -34,7 +35,7 @@ public struct VPRequestValidator {
             throw .missingNonceInRequestObject
         }
 
-        guard VPURIParser.isASCIIURLSafe(nonce) else {
+        guard URIParser.isASCIIURLSafe(nonce) else {
             throw .invalidNonceInRequestObject
         }
 
@@ -43,7 +44,7 @@ public struct VPRequestValidator {
         }
 
         if let state = requestObject.state, !state.isEmpty {
-            guard VPURIParser.isASCIIURLSafe(state) else {
+            guard URIParser.isASCIIURLSafe(state) else {
                 throw .invalidStateCharacters
             }
         }
@@ -69,7 +70,7 @@ public struct VPRequestValidator {
             credentialSets: dcqlQuery.credentialSets
         )
 
-        return VPValidatedRequest(
+        return ValidatedRequest(
             dcqlQuery: filteredQuery,
             responseURI: responseURI,
             state: requestObject.state,
