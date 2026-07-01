@@ -7,10 +7,6 @@ public struct URIParser {
 
     public init() {}
 
-    static func isASCIIURLSafe(_ value: String) -> Bool {
-        value.unicodeScalars.allSatisfy { asciiURLSafeCharacters.contains($0) }
-    }
-
     public func parse(uri: URL) throws(ValidationError) -> URIMetadata {
         guard uri.scheme?.lowercased() == "openid4vp" else {
             throw .missingScheme
@@ -75,5 +71,9 @@ public struct URIParser {
             nonce: nonce,
             requestMode: requestMode
         )
+    }
+
+    static func isASCIIURLSafe(_ value: String) -> Bool {
+        value.unicodeScalars.allSatisfy { asciiURLSafeCharacters.contains($0) }
     }
 }
