@@ -2,8 +2,8 @@ import Foundation
 @testable import SharingValidationService
 import Testing
 
-@Suite("VPRequestValidator Tests")
-struct VPRequestValidatorTests {
+@Suite("RequestValidator Tests")
+struct RequestValidatorTests {
     let sut = RequestValidator()
 
     private func makeValidURIMetadata(clientID: String = "x509_san_dns:verifier.example.com") -> URIMetadata {

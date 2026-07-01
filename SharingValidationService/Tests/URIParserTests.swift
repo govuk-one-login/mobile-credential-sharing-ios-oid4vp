@@ -2,8 +2,8 @@ import Foundation
 @testable import SharingValidationService
 import Testing
 
-@Suite("VPURIParser Tests")
-struct VPURIParserTests {
+@Suite("URIParser Tests")
+struct URIParserTests {
     let sut = URIParser()
 
     // MARK: - Happy Path
