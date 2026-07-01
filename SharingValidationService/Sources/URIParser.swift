@@ -1,9 +1,17 @@
 import Foundation
 
-public struct VPURIParser {
+public struct URIParser {
+    static let asciiURLSafeCharacters = CharacterSet(
+        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+    )
+
+    static func isASCIIURLSafe(_ value: String) -> Bool {
+        value.unicodeScalars.allSatisfy { asciiURLSafeCharacters.contains($0) }
+    }
+    
     public init() {}
 
-    public func parse(uri: URL) throws(VPValidationError) -> URIMetadata {
+    public func parse(uri: URL) throws(ValidationError) -> URIMetadata {
         guard uri.scheme?.lowercased() == "openid4vp" else {
             throw .missingScheme
         }
@@ -67,13 +75,5 @@ public struct VPURIParser {
             nonce: nonce,
             requestMode: requestMode
         )
-    }
-
-    static let asciiURLSafeCharacters = CharacterSet(
-        charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
-    )
-
-    static func isASCIIURLSafe(_ value: String) -> Bool {
-        value.unicodeScalars.allSatisfy { asciiURLSafeCharacters.contains($0) }
     }
 }

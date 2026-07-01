@@ -4,7 +4,7 @@ import Testing
 
 @Suite("VPRequestValidator Tests")
 struct VPRequestValidatorTests {
-    let sut = VPRequestValidator()
+    let sut = RequestValidator()
 
     private func makeValidURIMetadata(clientID: String = "x509_san_dns:verifier.example.com") -> URIMetadata {
         URIMetadata(
@@ -44,8 +44,8 @@ struct VPRequestValidatorTests {
         nonce: String? = "valid_nonce",
         state: String? = nil,
         dcqlQueryData: Data? = nil
-    ) -> VPVerifiedRequestObject {
-        VPVerifiedRequestObject(
+    ) -> VerifiedRequestObject {
+        VerifiedRequestObject(
             headerTyp: headerTyp,
             clientID: clientID,
             responseType: responseType,
@@ -129,7 +129,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(headerTyp: "JWT")
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.invalidTypHeader("JWT")) {
+        #expect(throws: ValidationError.invalidTypHeader("JWT")) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -139,7 +139,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(headerTyp: nil)
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.invalidTypHeader(nil)) {
+        #expect(throws: ValidationError.invalidTypHeader(nil)) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -149,7 +149,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(responseType: "code")
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.invalidResponseType("code")) {
+        #expect(throws: ValidationError.invalidResponseType("code")) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -159,7 +159,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(responseMode: "fragment")
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.invalidResponseMode("fragment")) {
+        #expect(throws: ValidationError.invalidResponseMode("fragment")) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -169,7 +169,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(responseMode: nil)
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.invalidResponseMode("nil")) {
+        #expect(throws: ValidationError.invalidResponseMode("nil")) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -179,7 +179,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(responseURI: nil)
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.missingResponseURI) {
+        #expect(throws: ValidationError.missingResponseURI) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -189,7 +189,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(responseURI: "http://verifier.example.com/response")
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.responseURINotHTTPS) {
+        #expect(throws: ValidationError.responseURINotHTTPS) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -199,7 +199,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(nonce: nil)
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.missingNonceInRequestObject) {
+        #expect(throws: ValidationError.missingNonceInRequestObject) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -209,7 +209,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(nonce: "")
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.missingNonceInRequestObject) {
+        #expect(throws: ValidationError.missingNonceInRequestObject) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -219,7 +219,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(nonce: "nonce with spaces")
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.invalidNonceInRequestObject) {
+        #expect(throws: ValidationError.invalidNonceInRequestObject) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -229,7 +229,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(clientID: "different-client")
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.clientIDMismatch) {
+        #expect(throws: ValidationError.clientIDMismatch) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -239,7 +239,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(state: "state with spaces")
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.invalidStateCharacters) {
+        #expect(throws: ValidationError.invalidStateCharacters) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -247,7 +247,7 @@ struct VPRequestValidatorTests {
     @Test("Throws missingDCQLQuery when dcqlQueryData nil")
     func throwsMissingDCQL() {
         let requestObject = makeValidRequestObject(dcqlQueryData: Data())
-        let modified = VPVerifiedRequestObject(
+        let modified = VerifiedRequestObject(
             headerTyp: "oauth-authz-req+jwt",
             clientID: "x509_san_dns:verifier.example.com",
             responseType: "vp_token",
@@ -259,7 +259,7 @@ struct VPRequestValidatorTests {
         )
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.missingDCQLQuery) {
+        #expect(throws: ValidationError.missingDCQLQuery) {
             try sut.validate(requestObject: modified, uriMetadata: uriMetadata)
         }
     }
@@ -272,7 +272,7 @@ struct VPRequestValidatorTests {
         #expect {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         } throws: { error in
-            guard let vpError = error as? VPValidationError,
+            guard let vpError = error as? ValidationError,
                   case .invalidDCQLQuery = vpError else {
                 return false
             }
@@ -288,7 +288,7 @@ struct VPRequestValidatorTests {
         let requestObject = makeValidRequestObject(dcqlQueryData: Data(json.utf8))
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: VPValidationError.noSupportedCredentialQueries) {
+        #expect(throws: ValidationError.noSupportedCredentialQueries) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }

@@ -1,6 +1,11 @@
 import Foundation
 
 public struct DCQLQuery: Sendable, Equatable, Decodable {
+    enum CodingKeys: String, CodingKey {
+        case credentials
+        case credentialSets = "credential_sets"
+    }
+
     public let credentials: [CredentialQuery]
     public let credentialSets: [CredentialSetQuery]?
 
@@ -8,14 +13,17 @@ public struct DCQLQuery: Sendable, Equatable, Decodable {
         self.credentials = credentials
         self.credentialSets = credentialSets
     }
-
-    enum CodingKeys: String, CodingKey {
-        case credentials
-        case credentialSets = "credential_sets"
-    }
 }
 
 public struct CredentialQuery: Sendable, Equatable, Decodable {
+    enum CodingKeys: String, CodingKey {
+        case id
+        case format
+        case meta
+        case claims
+        case claimSets = "claim_sets"
+    }
+
     public let id: String
     public let format: String
     public let meta: CredentialMeta?
@@ -35,25 +43,17 @@ public struct CredentialQuery: Sendable, Equatable, Decodable {
         self.claims = claims
         self.claimSets = claimSets
     }
-
-    enum CodingKeys: String, CodingKey {
-        case id
-        case format
-        case meta
-        case claims
-        case claimSets = "claim_sets"
-    }
 }
 
 public struct CredentialMeta: Sendable, Equatable, Decodable {
+    enum CodingKeys: String, CodingKey {
+        case doctypeValue = "doctype_value"
+    }
+
     public let doctypeValue: String?
 
     public init(doctypeValue: String?) {
         self.doctypeValue = doctypeValue
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case doctypeValue = "doctype_value"
     }
 }
 

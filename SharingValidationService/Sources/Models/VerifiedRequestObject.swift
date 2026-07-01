@@ -1,6 +1,6 @@
 import Foundation
 
-public struct VPVerifiedRequestObject: Sendable, Equatable {
+public struct VerifiedRequestObject: Sendable, Equatable {
     public let headerTyp: String?
     public let clientID: String?
     public let responseType: String?

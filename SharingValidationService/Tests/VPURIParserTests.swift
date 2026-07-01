@@ -4,7 +4,7 @@ import Testing
 
 @Suite("VPURIParser Tests")
 struct VPURIParserTests {
-    let sut = VPURIParser()
+    let sut = URIParser()
 
     // MARK: - Happy Path
 
@@ -101,7 +101,7 @@ struct VPURIParserTests {
     func throwsMissingSchemeForWrongScheme() {
         let uri = URL(string: "https://verifier.example.com?client_id=x&response_type=vp_token&nonce=abc&request=jwt")!
 
-        #expect(throws: VPValidationError.missingScheme) {
+        #expect(throws: ValidationError.missingScheme) {
             try sut.parse(uri: uri)
         }
     }
@@ -110,7 +110,7 @@ struct VPURIParserTests {
     func throwsMissingClientID() {
         let uri = URL(string: "openid4vp://?response_type=vp_token&nonce=abc&request=jwt")!
 
-        #expect(throws: VPValidationError.missingClientID) {
+        #expect(throws: ValidationError.missingClientID) {
             try sut.parse(uri: uri)
         }
     }
@@ -119,7 +119,7 @@ struct VPURIParserTests {
     func throwsMissingClientIDWhenEmpty() {
         let uri = URL(string: "openid4vp://?client_id=&response_type=vp_token&nonce=abc&request=jwt")!
 
-        #expect(throws: VPValidationError.missingClientID) {
+        #expect(throws: ValidationError.missingClientID) {
             try sut.parse(uri: uri)
         }
     }
@@ -128,7 +128,7 @@ struct VPURIParserTests {
     func throwsMissingResponseType() {
         let uri = URL(string: "openid4vp://?client_id=verifier&nonce=abc&request=jwt")!
 
-        #expect(throws: VPValidationError.missingResponseType) {
+        #expect(throws: ValidationError.missingResponseType) {
             try sut.parse(uri: uri)
         }
     }
@@ -137,7 +137,7 @@ struct VPURIParserTests {
     func throwsMissingNonce() {
         let uri = URL(string: "openid4vp://?client_id=verifier&response_type=vp_token&request=jwt")!
 
-        #expect(throws: VPValidationError.missingNonce) {
+        #expect(throws: ValidationError.missingNonce) {
             try sut.parse(uri: uri)
         }
     }
@@ -146,7 +146,7 @@ struct VPURIParserTests {
     func throwsInvalidNonceWithSpaces() {
         let uri = URL(string: "openid4vp://?client_id=verifier&response_type=vp_token&nonce=has%20space&request=jwt")!
 
-        #expect(throws: VPValidationError.invalidNonceCharacters) {
+        #expect(throws: ValidationError.invalidNonceCharacters) {
             try sut.parse(uri: uri)
         }
     }
@@ -155,7 +155,7 @@ struct VPURIParserTests {
     func throwsInvalidNonceWithSpecialChars() {
         let uri = URL(string: "openid4vp://?client_id=verifier&response_type=vp_token&nonce=bad%40nonce&request=jwt")!
 
-        #expect(throws: VPValidationError.invalidNonceCharacters) {
+        #expect(throws: ValidationError.invalidNonceCharacters) {
             try sut.parse(uri: uri)
         }
     }
@@ -164,7 +164,7 @@ struct VPURIParserTests {
     func throwsMissingRequestAndRequestURI() {
         let uri = URL(string: "openid4vp://?client_id=verifier&response_type=vp_token&nonce=abc")!
 
-        #expect(throws: VPValidationError.missingRequestAndRequestURI) {
+        #expect(throws: ValidationError.missingRequestAndRequestURI) {
             try sut.parse(uri: uri)
         }
     }
@@ -173,7 +173,7 @@ struct VPURIParserTests {
     func throwsBothPresent() {
         let uri = URL(string: "openid4vp://?client_id=verifier&response_type=vp_token&nonce=abc&request=jwt&request_uri=https%3A%2F%2Fexample.com")!
 
-        #expect(throws: VPValidationError.bothRequestAndRequestURIPresent) {
+        #expect(throws: ValidationError.bothRequestAndRequestURIPresent) {
             try sut.parse(uri: uri)
         }
     }
@@ -182,21 +182,21 @@ struct VPURIParserTests {
 
     @Test("isASCIIURLSafe accepts alphanumeric with -._~")
     func acceptsValidNonceChars() {
-        #expect(VPURIParser.isASCIIURLSafe("abcXYZ0123-._~"))
+        #expect(URIParser.isASCIIURLSafe("abcXYZ0123-._~"))
     }
 
     @Test("isASCIIURLSafe rejects spaces")
     func rejectsSpaces() {
-        #expect(!VPURIParser.isASCIIURLSafe("has space"))
+        #expect(!URIParser.isASCIIURLSafe("has space"))
     }
 
     @Test("isASCIIURLSafe rejects @#$% characters")
     func rejectsSpecialCharacters() {
-        #expect(!VPURIParser.isASCIIURLSafe("bad@#$%"))
+        #expect(!URIParser.isASCIIURLSafe("bad@#$%"))
     }
 
     @Test("isASCIIURLSafe rejects forward slash")
     func rejectsForwardSlash() {
-        #expect(!VPURIParser.isASCIIURLSafe("path/segment"))
+        #expect(!URIParser.isASCIIURLSafe("path/segment"))
     }
 }
