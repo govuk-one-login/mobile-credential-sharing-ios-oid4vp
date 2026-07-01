@@ -63,7 +63,7 @@ struct SharingNetworkingClientTests {
 
     // MARK: - submitResponse
 
-    @Test("submitResponse returns result with redirect URI")
+    @Test("submitResponse returns redirect URI from response body")
     func submitWithRedirect() async throws {
         let json = """
         {"redirect_uri":"https://verifier.example.com/callback"}
@@ -71,29 +71,27 @@ struct SharingNetworkingClientTests {
         let mock = MockNetworkClient(responseData: Data(json.utf8))
 
         let client = SharingNetworkingClient(networkClient: mock)
-        let result = try await client.submitResponse(
+        let redirectURI = try await client.submitResponse(
             vpToken: "encrypted.jwe.token",
             state: "state-123",
             to: URL(string: "https://verifier.example.com/response")!
         )
 
-        #expect(
-            result.redirectURI == URL(string: "https://verifier.example.com/callback")
-        )
+        #expect(redirectURI == URL(string: "https://verifier.example.com/callback"))
     }
 
-    @Test("submitResponse returns nil redirect URI when not in response")
+    @Test("submitResponse returns nil when no redirect URI in response")
     func submitWithoutRedirect() async throws {
         let mock = MockNetworkClient(responseData: Data())
 
         let client = SharingNetworkingClient(networkClient: mock)
-        let result = try await client.submitResponse(
+        let redirectURI = try await client.submitResponse(
             vpToken: "token",
             state: nil,
             to: URL(string: "https://verifier.example.com/response")!
         )
 
-        #expect(result.redirectURI == nil)
+        #expect(redirectURI == nil)
     }
 
     @Test("submitResponse sends POST with correct URL and Content-Type")

@@ -7,5 +7,5 @@ public protocol RemoteTransportProtocol {
         vpToken: String,
         state: String?,
         to responseURI: URL
-    ) async throws -> RemoteSubmissionResult
+    ) async throws -> URL?
 }

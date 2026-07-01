@@ -29,7 +29,7 @@ public final class SharingNetworkingClient: RemoteTransportProtocol {
         vpToken: String,
         state: String?,
         to responseURI: URL
-    ) async throws -> RemoteSubmissionResult {
+    ) async throws -> URL? {
         let body = buildFormBody(vpToken: vpToken, state: state)
 
         var request = URLRequest(url: responseURI)
@@ -44,9 +44,7 @@ public final class SharingNetworkingClient: RemoteTransportProtocol {
             .request(request)
             .execute()
 
-        return RemoteSubmissionResult(
-            redirectURI: parseRedirectURI(from: responseData)
-        )
+        return parseRedirectURI(from: responseData)
     }
 
     private func buildFormBody(vpToken: String, state: String?) -> Data {
