@@ -5,11 +5,11 @@ public struct URIParser {
         charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
     )
 
+    public init() {}
+
     static func isASCIIURLSafe(_ value: String) -> Bool {
         value.unicodeScalars.allSatisfy { asciiURLSafeCharacters.contains($0) }
     }
-    
-    public init() {}
 
     public func parse(uri: URL) throws(ValidationError) -> URIMetadata {
         guard uri.scheme?.lowercased() == "openid4vp" else {

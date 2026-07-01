@@ -2,8 +2,8 @@ import Foundation
 @testable import SharingValidationService
 import Testing
 
-@Suite("VPValidationError Tests")
-struct VPValidationErrorTests {
+@Suite("ValidationError Tests")
+struct ValidationErrorTests {
 
     @Test("oid4vpErrorCode returns invalid_request for URI parsing errors")
     func invalidRequestForURIErrors() {
