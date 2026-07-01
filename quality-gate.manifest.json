@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/govuk-one-login/quality-gates/refs/tags/v0.13.0/schemas/schema.json",
   "services": [
     {
-      "product": "mobile-credential-sharing-ios",
+      "product": "Mobile Credential Sharing iOS",
       "component": "mobile-credential-sharing-ios",
       "promotionType": "other",
       "promotionTypeDetails": [
