@@ -27,15 +27,10 @@ public final class SharingNetworkingClient: RemoteTransportProtocol {
 
     public func submitResponse(
         vpToken: String,
-        presentationSubmission: RemotePresentationSubmission,
         state: String?,
         to responseURI: URL
     ) async throws -> RemoteSubmissionResult {
-        let body = try buildFormBody(
-            vpToken: vpToken,
-            presentationSubmission: presentationSubmission,
-            state: state
-        )
+        let body = buildFormBody(vpToken: vpToken, state: state)
 
         var request = URLRequest(url: responseURI)
         request.httpMethod = "POST"
@@ -54,32 +49,9 @@ public final class SharingNetworkingClient: RemoteTransportProtocol {
         )
     }
 
-    private func buildFormBody(
-        vpToken: String,
-        presentationSubmission: RemotePresentationSubmission,
-        state: String?
-    ) throws -> Data {
-        let submissionJSON: Data
-        do {
-            submissionJSON = try JSONEncoder().encode(presentationSubmission)
-        } catch {
-            throw NetworkTransportError.encodingFailed(
-                "Failed to encode presentation_submission"
-            )
-        }
-
-        guard let submissionString = String(
-            data: submissionJSON,
-            encoding: .utf8
-        ) else {
-            throw NetworkTransportError.encodingFailed(
-                "Unable to convert presentation_submission to UTF-8"
-            )
-        }
-
+    private func buildFormBody(vpToken: String, state: String?) -> Data {
         var components: [String] = [
-            "vp_token=\(formURLEncode(vpToken))",
-            "presentation_submission=\(formURLEncode(submissionString))"
+            "vp_token=\(formURLEncode(vpToken))"
         ]
 
         if let state {
@@ -87,14 +59,7 @@ public final class SharingNetworkingClient: RemoteTransportProtocol {
         }
 
         let bodyString = components.joined(separator: "&")
-
-        guard let bodyData = bodyString.data(using: .utf8) else {
-            throw NetworkTransportError.encodingFailed(
-                "Unable to encode form body as UTF-8"
-            )
-        }
-
-        return bodyData
+        return Data(bodyString.utf8)
     }
 
     private func formURLEncode(_ value: String) -> String {

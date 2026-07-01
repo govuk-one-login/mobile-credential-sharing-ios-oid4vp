@@ -73,7 +73,6 @@ struct SharingNetworkingClientTests {
         let client = SharingNetworkingClient(networkClient: mock)
         let result = try await client.submitResponse(
             vpToken: "encrypted.jwe.token",
-            presentationSubmission: makeSubmission(),
             state: "state-123",
             to: URL(string: "https://verifier.example.com/response")!
         )
@@ -90,7 +89,6 @@ struct SharingNetworkingClientTests {
         let client = SharingNetworkingClient(networkClient: mock)
         let result = try await client.submitResponse(
             vpToken: "token",
-            presentationSubmission: makeSubmission(),
             state: nil,
             to: URL(string: "https://verifier.example.com/response")!
         )
@@ -106,7 +104,6 @@ struct SharingNetworkingClientTests {
         let client = SharingNetworkingClient(networkClient: mock)
         _ = try await client.submitResponse(
             vpToken: "token",
-            presentationSubmission: makeSubmission(),
             state: nil,
             to: url
         )
@@ -120,14 +117,13 @@ struct SharingNetworkingClientTests {
         )
     }
 
-    @Test("submitResponse form body contains vp_token and presentation_submission")
+    @Test("submitResponse form body contains vp_token")
     func submitFormBodyFields() async throws {
         let mock = MockNetworkClient(responseData: Data())
 
         let client = SharingNetworkingClient(networkClient: mock)
         _ = try await client.submitResponse(
             vpToken: "my-token",
-            presentationSubmission: makeSubmission(),
             state: nil,
             to: URL(string: "https://verifier.example.com/response")!
         )
@@ -135,7 +131,22 @@ struct SharingNetworkingClientTests {
         let body = mock.capturedRequests.first?.httpBody
         let bodyString = String(data: body!, encoding: .utf8)!
         #expect(bodyString.contains("vp_token=my-token"))
-        #expect(bodyString.contains("presentation_submission="))
+    }
+
+    @Test("submitResponse does not include presentation_submission")
+    func submitNoPresentationSubmission() async throws {
+        let mock = MockNetworkClient(responseData: Data())
+
+        let client = SharingNetworkingClient(networkClient: mock)
+        _ = try await client.submitResponse(
+            vpToken: "token",
+            state: nil,
+            to: URL(string: "https://verifier.example.com/response")!
+        )
+
+        let body = mock.capturedRequests.first?.httpBody
+        let bodyString = String(data: body!, encoding: .utf8)!
+        #expect(!bodyString.contains("presentation_submission"))
     }
 
     @Test("submitResponse includes state in form body when provided")
@@ -145,7 +156,6 @@ struct SharingNetworkingClientTests {
         let client = SharingNetworkingClient(networkClient: mock)
         _ = try await client.submitResponse(
             vpToken: "token",
-            presentationSubmission: makeSubmission(),
             state: "xyz",
             to: URL(string: "https://verifier.example.com/response")!
         )
@@ -162,7 +172,6 @@ struct SharingNetworkingClientTests {
         let client = SharingNetworkingClient(networkClient: mock)
         _ = try await client.submitResponse(
             vpToken: "token",
-            presentationSubmission: makeSubmission(),
             state: nil,
             to: URL(string: "https://verifier.example.com/response")!
         )
@@ -179,7 +188,6 @@ struct SharingNetworkingClientTests {
         let client = SharingNetworkingClient(networkClient: mock)
         _ = try await client.submitResponse(
             vpToken: "a+b/c=d",
-            presentationSubmission: makeSubmission(),
             state: nil,
             to: URL(string: "https://verifier.example.com/response")!
         )
@@ -198,23 +206,10 @@ struct SharingNetworkingClientTests {
         await #expect(throws: (any Error).self) {
             try await client.submitResponse(
                 vpToken: "token",
-                presentationSubmission: makeSubmission(),
                 state: nil,
                 to: URL(string: "https://verifier.example.com/response")!
             )
         }
-    }
-
-    // MARK: - Helpers
-
-    private func makeSubmission() -> RemotePresentationSubmission {
-        RemotePresentationSubmission(
-            id: "submission-1",
-            definitionID: "def-1",
-            descriptorMap: [
-                DescriptorMapEntry(id: "input-1", format: "mso_mdoc", path: "$")
-            ]
-        )
     }
 }
 
