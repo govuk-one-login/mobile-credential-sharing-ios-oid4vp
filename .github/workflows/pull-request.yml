@@ -64,6 +64,7 @@ jobs:
         run: |
           pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
 
+          brew install sonar-scanner
           bundle install
 
           bundle exec fastlane test scheme:"Sharing-Demo" \
