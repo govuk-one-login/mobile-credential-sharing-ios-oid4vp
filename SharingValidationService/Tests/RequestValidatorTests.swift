@@ -37,30 +37,38 @@ struct RequestValidatorTests {
 
     private func makeValidRequestObject(
         headerTyp: String? = "oauth-authz-req+jwt",
+        aud: String? = "https://self-issued.me/v2",
         clientID: String? = "x509_san_dns:verifier.example.com",
         responseType: String? = "vp_token",
-        responseMode: String? = "direct_post",
+        responseMode: String? = "direct_post.jwt",
         responseURI: String? = "https://verifier.example.com/response",
+        redirectURI: String? = nil,
         nonce: String? = "valid_nonce",
         state: String? = nil,
-        dcqlQueryData: Data? = nil
+        dcqlQueryData: Data? = nil,
+        clientMetadataData: Data? = Data("{}".utf8),
+        leafCertificateSANs: [String] = ["verifier.example.com"]
     ) -> VerifiedRequestObject {
         VerifiedRequestObject(
             headerTyp: headerTyp,
+            aud: aud,
             clientID: clientID,
             responseType: responseType,
             responseMode: responseMode,
             responseURI: responseURI,
+            redirectURI: redirectURI,
             nonce: nonce,
             state: state,
-            dcqlQueryData: dcqlQueryData ?? makeValidDCQLData()
+            dcqlQueryData: dcqlQueryData ?? makeValidDCQLData(),
+            clientMetadataData: clientMetadataData,
+            leafCertificateSANs: leafCertificateSANs
         )
     }
 
     // MARK: - Happy Path
 
-    @Test("Validates complete valid request object with direct_post mode")
-    func validatesCompleteRequestDirectPost() throws {
+    @Test("Validates complete valid request object")
+    func validatesCompleteRequest() throws {
         let requestObject = makeValidRequestObject()
         let uriMetadata = makeValidURIMetadata()
 
@@ -144,6 +152,46 @@ struct RequestValidatorTests {
         }
     }
 
+    @Test("Throws invalidAudience when aud is wrong")
+    func throwsInvalidAudienceWrongValue() {
+        let requestObject = makeValidRequestObject(aud: "https://verifier.example.com")
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.invalidAudience("https://verifier.example.com")) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Throws invalidAudience when aud is nil")
+    func throwsInvalidAudienceNil() {
+        let requestObject = makeValidRequestObject(aud: nil)
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.invalidAudience(nil)) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Throws redirectURINotSupported when redirect_uri is present")
+    func throwsRedirectURINotSupported() {
+        let requestObject = makeValidRequestObject(redirectURI: "https://verifier.example.com/cb")
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.redirectURINotSupported) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Throws missingClientMetadata when client_metadata is absent")
+    func throwsMissingClientMetadata() {
+        let requestObject = makeValidRequestObject(clientMetadataData: nil)
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.missingClientMetadata) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
     @Test("Throws invalidResponseType when not vp_token")
     func throwsInvalidResponseType() {
         let requestObject = makeValidRequestObject(responseType: "code")
@@ -160,6 +208,16 @@ struct RequestValidatorTests {
         let uriMetadata = makeValidURIMetadata()
 
         #expect(throws: ValidationError.invalidResponseMode("fragment")) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Throws invalidResponseMode when mode is direct_post without JWE")
+    func throwsInvalidResponseModeForDirectPost() {
+        let requestObject = makeValidRequestObject(responseMode: "direct_post")
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.invalidResponseMode("direct_post")) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -234,6 +292,55 @@ struct RequestValidatorTests {
         }
     }
 
+    @Test("Throws clientIDSANMismatch when DNS name is absent from leaf cert SANs")
+    func throwsClientIDSANMismatch() {
+        let requestObject = makeValidRequestObject(leafCertificateSANs: ["other.example.com"])
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.clientIDSANMismatch) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Throws clientIDSANMismatch when leaf cert SANs are empty")
+    func throwsClientIDSANMismatchWhenEmpty() {
+        let requestObject = makeValidRequestObject(leafCertificateSANs: [])
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.clientIDSANMismatch) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Passes when DNS name matches one of several leaf cert SANs")
+    func passesWhenSANMatchesAmongMany() throws {
+        let requestObject = makeValidRequestObject(
+            leafCertificateSANs: ["a.example.com", "verifier.example.com", "b.example.com"]
+        )
+        let uriMetadata = makeValidURIMetadata()
+
+        let result = try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+
+        #expect(result.nonce == "valid_nonce")
+    }
+
+    @Test("Skips SAN check when client_id prefix is not x509_san_dns")
+    func skipsSANCheckForNonX509Prefix() throws {
+        let clientID = "did:example:123"
+        let requestObject = makeValidRequestObject(clientID: clientID, leafCertificateSANs: [])
+        let uriMetadata = URIMetadata(
+            clientID: clientID,
+            clientIdentifierPrefix: .did(identifier: "example:123"),
+            responseType: "vp_token",
+            nonce: "uri_nonce",
+            requestURI: URL(string: "https://verifier.example.com/request")!
+        )
+
+        let result = try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+
+        #expect(result.clientIdentifierPrefix == .did(identifier: "example:123"))
+    }
+
     @Test("Throws invalidStateCharacters when state has invalid chars")
     func throwsInvalidStateChars() {
         let requestObject = makeValidRequestObject(state: "state with spaces")
@@ -249,13 +356,17 @@ struct RequestValidatorTests {
         let requestObject = makeValidRequestObject(dcqlQueryData: Data())
         let modified = VerifiedRequestObject(
             headerTyp: "oauth-authz-req+jwt",
+            aud: "https://self-issued.me/v2",
             clientID: "x509_san_dns:verifier.example.com",
             responseType: "vp_token",
             responseMode: "direct_post",
             responseURI: "https://verifier.example.com/response",
+            redirectURI: nil,
             nonce: "valid_nonce",
             state: nil,
-            dcqlQueryData: nil
+            dcqlQueryData: nil,
+            clientMetadataData: Data("{}".utf8),
+            leafCertificateSANs: ["verifier.example.com"]
         )
         let uriMetadata = makeValidURIMetadata()
 

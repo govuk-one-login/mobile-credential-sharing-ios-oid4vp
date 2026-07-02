@@ -14,14 +14,18 @@ public enum ValidationError: Error, Sendable, Equatable {
     // MARK: - Request Object Structure
 
     case invalidTypHeader(String?)
+    case invalidAudience(String?)
     case invalidResponseType(String)
     case invalidResponseMode(String)
     case missingResponseURI
     case responseURINotHTTPS
+    case redirectURINotSupported
     case missingNonceInRequestObject
     case invalidNonceInRequestObject
     case clientIDMismatch
+    case clientIDSANMismatch
     case invalidStateCharacters
+    case missingClientMetadata
 
     // MARK: - DCQL
 

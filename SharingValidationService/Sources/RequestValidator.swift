@@ -12,13 +12,15 @@ public struct RequestValidator {
             throw .invalidTypHeader(requestObject.headerTyp)
         }
 
+        guard requestObject.aud == "https://self-issued.me/v2" else {
+            throw .invalidAudience(requestObject.aud)
+        }
+
         guard requestObject.responseType == "vp_token" else {
             throw .invalidResponseType(requestObject.responseType ?? "nil")
         }
 
-        let validModes: Set<String> = ["direct_post", "direct_post.jwt"]
-        guard let responseMode = requestObject.responseMode,
-              validModes.contains(responseMode) else {
+        guard requestObject.responseMode == "direct_post.jwt" else {
             throw .invalidResponseMode(requestObject.responseMode ?? "nil")
         }
 
@@ -29,6 +31,10 @@ public struct RequestValidator {
 
         guard responseURI.scheme?.lowercased() == "https" else {
             throw .responseURINotHTTPS
+        }
+
+        guard requestObject.redirectURI == nil else {
+            throw .redirectURINotSupported
         }
 
         guard let nonce = requestObject.nonce, !nonce.isEmpty else {
@@ -43,10 +49,20 @@ public struct RequestValidator {
             throw .clientIDMismatch
         }
 
+        if case let .x509SanDns(dnsName) = uriMetadata.clientIdentifierPrefix {
+            guard requestObject.leafCertificateSANs.contains(dnsName) else {
+                throw .clientIDSANMismatch
+            }
+        }
+
         if let state = requestObject.state, !state.isEmpty {
             guard URIParser.isASCIIURLSafe(state) else {
                 throw .invalidStateCharacters
             }
+        }
+
+        guard requestObject.clientMetadataData != nil else {
+            throw .missingClientMetadata
         }
 
         guard let dcqlData = requestObject.dcqlQueryData else {
