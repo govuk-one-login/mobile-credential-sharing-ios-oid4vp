@@ -71,6 +71,13 @@
         "identifier" : "CredentialSharingUITests",
         "name" : "CredentialSharingUITests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "SharingValidationServiceTests",
+        "name" : "SharingValidationServiceTests"
+      }
     }
   ],
   "version" : 1
