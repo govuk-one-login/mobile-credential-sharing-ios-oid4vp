@@ -12,7 +12,7 @@ struct RequestValidatorTests {
             clientIdentifierPrefix: .x509SanDns(identifier: "verifier.example.com"),
             responseType: "vp_token",
             nonce: "uri_nonce",
-            requestMode: .byReference(requestURI: URL(string: "https://verifier.example.com/request")!)
+            requestURI: URL(string: "https://verifier.example.com/request")!
         )
     }
 

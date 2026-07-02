@@ -12,8 +12,8 @@ struct ValidationErrorTests {
         #expect(ValidationError.missingResponseType.oid4vpErrorCode == "invalid_request")
         #expect(ValidationError.missingNonce.oid4vpErrorCode == "invalid_request")
         #expect(ValidationError.invalidNonceCharacters.oid4vpErrorCode == "invalid_request")
-        #expect(ValidationError.missingRequestAndRequestURI.oid4vpErrorCode == "invalid_request")
-        #expect(ValidationError.bothRequestAndRequestURIPresent.oid4vpErrorCode == "invalid_request")
+        #expect(ValidationError.missingRequestURI.oid4vpErrorCode == "invalid_request")
+        #expect(ValidationError.invalidRequestURI.oid4vpErrorCode == "invalid_request")
     }
 
     @Test("oid4vpErrorCode returns unsupported_response_type for wrong response_type")

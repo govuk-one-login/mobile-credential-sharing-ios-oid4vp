@@ -8,8 +8,8 @@ public enum ValidationError: Error, Sendable, Equatable {
     case missingResponseType
     case missingNonce
     case invalidNonceCharacters
-    case missingRequestAndRequestURI
-    case bothRequestAndRequestURIPresent
+    case missingRequestURI
+    case invalidRequestURI
 
     // MARK: - Request Object Structure
 

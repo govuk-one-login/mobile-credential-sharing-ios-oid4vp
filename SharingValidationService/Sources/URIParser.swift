@@ -38,28 +38,12 @@ public struct URIParser {
             throw .invalidNonceCharacters
         }
 
-        let request = params["request"]
-        let requestURI = params["request_uri"]
-
-        let hasRequest = request != nil && !request!.isEmpty
-        let hasRequestURI = requestURI != nil && !requestURI!.isEmpty
-
-        guard hasRequest || hasRequestURI else {
-            throw .missingRequestAndRequestURI
+        guard let requestURIString = params["request_uri"], !requestURIString.isEmpty else {
+            throw .missingRequestURI
         }
 
-        guard !(hasRequest && hasRequestURI) else {
-            throw .bothRequestAndRequestURIPresent
-        }
-
-        let requestMode: URIMetadata.RequestMode
-        if hasRequest {
-            requestMode = .byValue(jwt: request!)
-        } else {
-            guard let url = URL(string: requestURI!) else {
-                throw .missingRequestAndRequestURI
-            }
-            requestMode = .byReference(requestURI: url)
+        guard let requestURI = URL(string: requestURIString) else {
+            throw .invalidRequestURI
         }
 
         let clientIdentifierPrefix = ClientIdentifierPrefix.parse(clientID: clientID)
@@ -69,7 +53,7 @@ public struct URIParser {
             clientIdentifierPrefix: clientIdentifierPrefix,
             responseType: responseType,
             nonce: nonce,
-            requestMode: requestMode
+            requestURI: requestURI
         )
     }
 
