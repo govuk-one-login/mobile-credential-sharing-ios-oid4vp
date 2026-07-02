@@ -3,7 +3,9 @@ import Foundation
 import Security
 
 public struct JWTSignatureVerifier: SignatureVerifying {
-    public init() {}
+    public init() {
+        // able to initialise outside the package
+    }
 
     public func verify(jwt: String) throws(JWTVerificationError) -> VerifiedJWT {
         let parts = jwt.split(separator: ".", omittingEmptySubsequences: false)
@@ -18,6 +20,7 @@ public struct JWTSignatureVerifier: SignatureVerifying {
         let headerData = try decodeHeader(headerSegment)
         let header = try parseHeader(headerData)
 
+        try validateType(header)
         try validateAlgorithm(header)
         let publicKey = try extractPublicKey(from: header)
 
@@ -53,6 +56,15 @@ extension JWTSignatureVerifier {
             throw .headerDecodingFailed
         }
         return json
+    }
+
+    private func validateType(_ header: [String: Any]) throws(JWTVerificationError) {
+        guard let typ = header["typ"] as? String else {
+            throw .unsupportedType("none")
+        }
+        guard typ == "JWT" else {
+            throw .unsupportedType(typ)
+        }
     }
 
     private func validateAlgorithm(_ header: [String: Any]) throws(JWTVerificationError) {

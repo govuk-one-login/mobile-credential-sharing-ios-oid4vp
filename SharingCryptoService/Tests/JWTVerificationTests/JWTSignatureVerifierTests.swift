@@ -100,6 +100,30 @@ struct JWTSignatureVerifierTests {
         }
     }
 
+    // MARK: - Wrong Type
+
+    @Test("Throws unsupportedType when typ is not JWT")
+    func throwsUnsupportedTypeForWrongType() throws {
+        let payload = Data(#"{"sub":"user"}"#.utf8)
+        let headerJSON = Data(#"{"alg":"ES256","typ":"at+jwt","x5c":["AAAA"]}"#.utf8)
+        let jwt = try helper.signWithCustomHeader(headerJSON, payload: payload)
+
+        #expect(throws: JWTVerificationError.unsupportedType("at+jwt")) {
+            try sut.verify(jwt: jwt)
+        }
+    }
+
+    @Test("Throws unsupportedType when typ field is missing")
+    func throwsUnsupportedTypeWhenMissing() throws {
+        let payload = Data(#"{"sub":"user"}"#.utf8)
+        let headerJSON = Data(#"{"alg":"ES256","x5c":["AAAA"]}"#.utf8)
+        let jwt = try helper.signWithCustomHeader(headerJSON, payload: payload)
+
+        #expect(throws: JWTVerificationError.unsupportedType("none")) {
+            try sut.verify(jwt: jwt)
+        }
+    }
+
     // MARK: - Missing x5c
 
     @Test("Throws missingX5CHeader when x5c is absent from header")
@@ -161,7 +185,7 @@ struct JWTSignatureVerifierTests {
 
     @Test("Throws invalidCertificateData when x5c contains non-base64 data")
     func throwsInvalidCertificateForBadBase64() throws {
-        let headerJSON = Data(#"{"alg":"ES256","x5c":["!!!not-base64!!!"]}"#.utf8)
+        let headerJSON = Data(#"{"alg":"ES256","typ":"JWT","x5c":["!!!not-base64!!!"]}"#.utf8)
         let payload = Data(#"{"sub":"user"}"#.utf8)
         let jwt = try helper.signWithCustomHeader(headerJSON, payload: payload)
 
@@ -175,6 +199,7 @@ struct JWTSignatureVerifierTests {
         let garbage = Data([0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01, 0x02, 0x03])
         let headerDict: [String: Any] = [
             "alg": "ES256",
+            "typ": "JWT",
             "x5c": [garbage.base64EncodedString()]
         ]
         let headerJSON = try JSONSerialization.data(withJSONObject: headerDict)
@@ -188,7 +213,7 @@ struct JWTSignatureVerifierTests {
 
     @Test("Throws invalidCertificateData when x5c array is empty")
     func throwsMissingX5CForEmptyArray() throws {
-        let headerJSON = Data(#"{"alg":"ES256","x5c":[]}"#.utf8)
+        let headerJSON = Data(#"{"alg":"ES256","typ":"JWT","x5c":[]}"#.utf8)
         let payload = Data(#"{"sub":"user"}"#.utf8)
         let jwt = try helper.signWithCustomHeader(headerJSON, payload: payload)
 
