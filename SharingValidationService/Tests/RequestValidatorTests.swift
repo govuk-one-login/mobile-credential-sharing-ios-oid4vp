@@ -2,7 +2,9 @@ import Foundation
 @testable import SharingValidationService
 import Testing
 
+// swiftlint:disable file_length
 @Suite("RequestValidator Tests")
+// swiftlint:disable:next type_body_length
 struct RequestValidatorTests {
     let sut = RequestValidator()
 
