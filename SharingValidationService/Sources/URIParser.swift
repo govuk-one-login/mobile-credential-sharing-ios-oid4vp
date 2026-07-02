@@ -42,7 +42,9 @@ public struct URIParser {
             throw .missingRequestURI
         }
 
-        guard let requestURI = URL(string: requestURIString) else {
+        guard let requestURI = URL(string: requestURIString),
+              requestURI.scheme != nil,
+              requestURI.host != nil else {
             throw .invalidRequestURI
         }
 

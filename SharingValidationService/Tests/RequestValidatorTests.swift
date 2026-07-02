@@ -355,13 +355,12 @@ struct RequestValidatorTests {
 
     @Test("Throws missingDCQLQuery when dcqlQueryData nil")
     func throwsMissingDCQL() {
-        let requestObject = makeValidRequestObject(dcqlQueryData: Data())
         let modified = VerifiedRequestObject(
             headerTyp: "oauth-authz-req+jwt",
             aud: "https://self-issued.me/v2",
             clientID: "x509_san_dns:verifier.example.com",
             responseType: "vp_token",
-            responseMode: "direct_post",
+            responseMode: "direct_post.jwt",
             responseURI: "https://verifier.example.com/response",
             redirectURI: nil,
             nonce: "valid_nonce",
