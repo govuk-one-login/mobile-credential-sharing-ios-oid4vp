@@ -33,6 +33,39 @@ struct JWTSignatureVerifierTests {
         #expect(header?["x5c"] != nil)
     }
 
+    @Test("Returns empty SANs when leaf certificate has no SAN extension")
+    func returnsEmptySANsWhenAbsent() throws {
+        let payload = Data(#"{"sub":"user"}"#.utf8)
+        let jwt = try helper.sign(payload: payload)
+
+        let result = try sut.verify(jwt: jwt)
+
+        #expect(result.leafCertificateSANs.isEmpty)
+    }
+
+    // MARK: - Subject Alternative Names
+
+    @Test("Extracts a single dNSName SAN from the leaf certificate")
+    func extractsSingleDNSName() throws {
+        let sanHelper = JWTTestHelper(dnsNames: ["verifier.example.com"])
+        let jwt = try sanHelper.sign(payload: Data(#"{"sub":"user"}"#.utf8))
+
+        let result = try sut.verify(jwt: jwt)
+
+        #expect(result.leafCertificateSANs == ["verifier.example.com"])
+    }
+
+    @Test("Extracts multiple dNSName SANs preserving order")
+    func extractsMultipleDNSNames() throws {
+        let names = ["a.example.com", "verifier.example.com", "b.example.com"]
+        let sanHelper = JWTTestHelper(dnsNames: names)
+        let jwt = try sanHelper.sign(payload: Data(#"{"sub":"user"}"#.utf8))
+
+        let result = try sut.verify(jwt: jwt)
+
+        #expect(result.leafCertificateSANs == names)
+    }
+
     // MARK: - Tampered Payload
 
     @Test("Throws invalidSignature when payload has been tampered with")

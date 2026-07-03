@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import Security
+import X509
 
 public struct JWTSignatureVerifier: SignatureVerifying {
     public init() {
@@ -22,7 +23,8 @@ public struct JWTSignatureVerifier: SignatureVerifying {
 
         try validateType(header)
         try validateAlgorithm(header)
-        let publicKey = try extractPublicKey(from: header)
+        let leafCertDER = try leafCertificateDER(from: header)
+        let publicKey = try extractPublicKey(fromDER: leafCertDER)
 
         guard let payloadData = Data(base64URLEncoded: payloadSegment) else {
             throw .payloadDecodingFailed
@@ -39,7 +41,11 @@ public struct JWTSignatureVerifier: SignatureVerifying {
             throw .invalidSignature
         }
 
-        return VerifiedJWT(headerData: headerData, payloadData: payloadData)
+        return VerifiedJWT(
+            headerData: headerData,
+            payloadData: payloadData,
+            leafCertificateSANs: dnsNames(fromDER: leafCertDER)
+        )
     }
 }
 
@@ -76,7 +82,7 @@ extension JWTSignatureVerifier {
         }
     }
 
-    private func extractPublicKey(from header: [String: Any]) throws(JWTVerificationError) -> P256.Signing.PublicKey {
+    private func leafCertificateDER(from header: [String: Any]) throws(JWTVerificationError) -> Data {
         guard let x5c = header["x5c"] as? [String], let leafCertBase64 = x5c.first else {
             throw .missingX5CHeader
         }
@@ -85,6 +91,12 @@ extension JWTSignatureVerifier {
             throw .invalidCertificateData
         }
 
+        return certData
+    }
+
+    private func extractPublicKey(
+        fromDER certData: Data
+    ) throws(JWTVerificationError) -> P256.Signing.PublicKey {
         guard let certificate = SecCertificateCreateWithData(nil, certData as CFData) else {
             throw .invalidCertificateData
         }
@@ -102,5 +114,23 @@ extension JWTSignatureVerifier {
         }
 
         return publicKey
+    }
+
+    /// Reads `dNSName` Subject Alternative Names from the DER-encoded leaf certificate.
+    /// Returns an empty array when the certificate cannot be parsed as X.509, has no SAN
+    /// extension, or has no DNS entries; absence is not a verification failure (the
+    /// signature has already been checked against this certificate's key).
+    private func dnsNames(fromDER certData: Data) -> [String] {
+        guard let certificate = try? Certificate(derEncoded: Array(certData)),
+              let san = try? certificate.extensions.subjectAlternativeNames else {
+            return []
+        }
+
+        return san.compactMap { generalName in
+            guard case let .dnsName(name) = generalName else {
+                return nil
+            }
+            return name
+        }
     }
 }

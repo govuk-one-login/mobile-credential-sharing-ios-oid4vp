@@ -6,10 +6,10 @@ struct JWTTestHelper {
     let signingKey: P256.Signing.PrivateKey
     let certificateDER: Data
 
-    init() {
+    init(dnsNames: [String] = []) {
         let key = P256.Signing.PrivateKey()
         self.signingKey = key
-        self.certificateDER = Self.createSelfSignedCertificate(for: key)
+        self.certificateDER = Self.createSelfSignedCertificate(for: key, dnsNames: dnsNames)
     }
 
     func sign(payload: Data, algorithm: String = "ES256", includeX5C: Bool = true) throws -> String {
@@ -42,7 +42,10 @@ struct JWTTestHelper {
 }
 
 extension JWTTestHelper {
-    private static func createSelfSignedCertificate(for privateKey: P256.Signing.PrivateKey) -> Data {
+    private static func createSelfSignedCertificate(
+        for privateKey: P256.Signing.PrivateKey,
+        dnsNames: [String]
+    ) -> Data {
         var error: Unmanaged<CFError>?
         let attributes: [String: Any] = [
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
@@ -65,16 +68,17 @@ extension JWTTestHelper {
         // Build a minimal self-signed X.509 v3 certificate in DER format
         return buildDERCertificate(
             publicKey: publicSecKey,
-            signingKey: secKey
+            signingKey: secKey,
+            dnsNames: dnsNames
         )
     }
 
-    private static func buildDERCertificate(publicKey: SecKey, signingKey: SecKey) -> Data {
+    private static func buildDERCertificate(publicKey: SecKey, signingKey: SecKey, dnsNames: [String]) -> Data {
         guard let publicKeyData = SecKeyCopyExternalRepresentation(publicKey, nil) as Data? else {
             fatalError("Failed to get external representation of public key")
         }
 
-        let tbs = buildTBSCertificate(publicKeyData: publicKeyData)
+        let tbs = buildTBSCertificate(publicKeyData: publicKeyData, dnsNames: dnsNames)
         let signature = signData(tbs, with: signingKey)
 
         // Certificate ::= SEQUENCE { tbsCertificate, signatureAlgorithm, signatureValue }
@@ -86,7 +90,7 @@ extension JWTTestHelper {
         return derSequence(cert)
     }
 
-    private static func buildTBSCertificate(publicKeyData: Data) -> Data {
+    private static func buildTBSCertificate(publicKeyData: Data, dnsNames: [String]) -> Data {
         var tbs = Data()
 
         // Version: v3 (explicit tag [0])
@@ -110,7 +114,35 @@ extension JWTTestHelper {
         // Subject Public Key Info
         tbs.append(contentsOf: buildSubjectPublicKeyInfo(publicKeyData))
 
+        // Extensions (explicit tag [3]) — only emitted when SANs are requested
+        if !dnsNames.isEmpty {
+            tbs.append(contentsOf: derExplicitTag(3, content: buildExtensions(dnsNames: dnsNames)))
+        }
+
         return derSequence(tbs)
+    }
+
+    private static func buildExtensions(dnsNames: [String]) -> Data {
+        // Extensions ::= SEQUENCE OF Extension
+        derSequence(buildSubjectAltNameExtension(dnsNames: dnsNames))
+    }
+
+    private static func buildSubjectAltNameExtension(dnsNames: [String]) -> Data {
+        // Extension ::= SEQUENCE { extnID OBJECT IDENTIFIER, extnValue OCTET STRING }
+        // subjectAltName OID 2.5.29.17
+        let sanOID: [UInt8] = [0x06, 0x03, 0x55, 0x1D, 0x11]
+
+        // GeneralNames ::= SEQUENCE OF GeneralName; dNSName is context tag [2] (IA5String content)
+        var generalNames = Data()
+        for dnsName in dnsNames {
+            generalNames.append(contentsOf: derTLV(tag: 0x82, content: Data(dnsName.utf8)))
+        }
+        let sanValue = derSequence(generalNames)
+
+        // extnValue wraps the DER-encoded GeneralNames in an OCTET STRING
+        let extnValue = derTLV(tag: 0x04, content: sanValue)
+
+        return derSequence(Data(sanOID) + extnValue)
     }
 
     private static func ecdsaWithSHA256AlgorithmIdentifier() -> Data {
