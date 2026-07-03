@@ -58,14 +58,33 @@ public struct CredentialMeta: Sendable, Equatable, Decodable {
 }
 
 public struct ClaimQuery: Sendable, Equatable, Decodable {
+    enum CodingKeys: String, CodingKey {
+        case id
+        case path
+        case values
+        case intentToRetain = "intent_to_retain"
+    }
+
     public let id: String?
     public let path: [String]
     public let values: [ClaimValue]?
+    /// Whether the verifier intends to store the disclosed attribute. Absent in the query means
+    /// `false` per OID4VP DCQL. Surfaced to the consent screen and carried into the ISO request.
+    public let intentToRetain: Bool
 
-    public init(id: String?, path: [String], values: [ClaimValue]?) {
+    public init(id: String?, path: [String], values: [ClaimValue]?, intentToRetain: Bool = false) {
         self.id = id
         self.path = path
         self.values = values
+        self.intentToRetain = intentToRetain
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decodeIfPresent(String.self, forKey: .id)
+        self.path = try container.decode([String].self, forKey: .path)
+        self.values = try container.decodeIfPresent([ClaimValue].self, forKey: .values)
+        self.intentToRetain = try container.decodeIfPresent(Bool.self, forKey: .intentToRetain) ?? false
     }
 }
 

@@ -33,7 +33,32 @@ struct DCQLQueryDecodingTests {
         #expect(query.credentials[0].meta?.doctypeValue == "org.iso.18013.5.1.mDL")
         #expect(query.credentials[0].claims?.count == 1)
         #expect(query.credentials[0].claims?[0].path == ["org.iso.18013.5.1", "family_name"])
+        #expect(query.credentials[0].claims?[0].intentToRetain == false)
         #expect(query.credentialSets == nil)
+    }
+
+    @Test("Decodes intent_to_retain when present, defaulting to false when absent")
+    func decodesIntentToRetain() throws {
+        let json = """
+        {
+            "credentials": [
+                {
+                    "id": "mdl_credential",
+                    "format": "mso_mdoc",
+                    "claims": [
+                        { "path": ["org.iso.18013.5.1", "family_name"], "intent_to_retain": true },
+                        { "path": ["org.iso.18013.5.1", "given_name"] }
+                    ]
+                }
+            ]
+        }
+        """
+        let data = Data(json.utf8)
+
+        let query = try JSONDecoder().decode(DCQLQuery.self, from: data)
+
+        #expect(query.credentials[0].claims?[0].intentToRetain == true)
+        #expect(query.credentials[0].claims?[1].intentToRetain == false)
     }
 
     @Test("Decodes DCQL query with credential_sets")
