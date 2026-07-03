@@ -13,6 +13,8 @@ public enum ValidationError: Error, Sendable, Equatable {
 
     // MARK: - Request Object Structure
 
+    case malformedRequestObjectHeader
+    case malformedRequestObjectPayload
     case invalidTypHeader(String?)
     case invalidAudience(String?)
     case invalidResponseType(String)
