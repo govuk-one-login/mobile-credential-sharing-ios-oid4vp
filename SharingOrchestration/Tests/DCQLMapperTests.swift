@@ -1,5 +1,6 @@
 @testable import SharingCryptoService
 @testable import SharingOrchestration
+import SharingValidationService
 import Testing
 
 @Suite("DCQLMapper Tests")
@@ -14,8 +15,13 @@ struct DCQLMapperTests {
             id: "cred1",
             format: "mso_mdoc",
             meta: doctype.map { CredentialMeta(doctypeValue: $0) },
-            claims: claims
+            claims: claims,
+            claimSets: nil
         )
+    }
+
+    private func claim(_ path: [String], intentToRetain: Bool = false) -> ClaimQuery {
+        ClaimQuery(id: nil, path: path, values: nil, intentToRetain: intentToRetain)
     }
 
     // MARK: - Happy Path
@@ -23,8 +29,8 @@ struct DCQLMapperTests {
     @Test("Maps a standard mDL claim set to a single-namespace ItemsRequest")
     func mapsStandardClaimSet() throws {
         let credential = credential(claims: [
-            ClaimQuery(path: ["org.iso.18013.5.1", "family_name"], intentToRetain: false),
-            ClaimQuery(path: ["org.iso.18013.5.1", "given_name"], intentToRetain: false)
+            claim(["org.iso.18013.5.1", "family_name"]),
+            claim(["org.iso.18013.5.1", "given_name"])
         ])
 
         let itemsRequest = try sut.mapToItemsRequest(credential)
@@ -38,9 +44,9 @@ struct DCQLMapperTests {
     @Test("Groups claims across namespaces preserving first-seen order")
     func groupsMultipleNamespaces() throws {
         let credential = credential(claims: [
-            ClaimQuery(path: ["org.iso.18013.5.1", "family_name"], intentToRetain: false),
-            ClaimQuery(path: ["org.iso.18013.5.1.aamva", "organ_donor"], intentToRetain: false),
-            ClaimQuery(path: ["org.iso.18013.5.1", "given_name"], intentToRetain: false)
+            claim(["org.iso.18013.5.1", "family_name"]),
+            claim(["org.iso.18013.5.1.aamva", "organ_donor"]),
+            claim(["org.iso.18013.5.1", "given_name"])
         ])
 
         let itemsRequest = try sut.mapToItemsRequest(credential)
@@ -53,8 +59,8 @@ struct DCQLMapperTests {
     @Test("Carries intent_to_retain through to the data element")
     func carriesIntentToRetain() throws {
         let credential = credential(claims: [
-            ClaimQuery(path: ["org.iso.18013.5.1", "portrait"], intentToRetain: true),
-            ClaimQuery(path: ["org.iso.18013.5.1", "given_name"], intentToRetain: false)
+            claim(["org.iso.18013.5.1", "portrait"], intentToRetain: true),
+            claim(["org.iso.18013.5.1", "given_name"])
         ])
 
         let itemsRequest = try sut.mapToItemsRequest(credential)
@@ -69,7 +75,7 @@ struct DCQLMapperTests {
     @Test("Throws missingDoctype when meta has no doctype_value")
     func throwsMissingDoctype() {
         let credential = credential(doctype: nil, claims: [
-            ClaimQuery(path: ["org.iso.18013.5.1", "family_name"], intentToRetain: false)
+            claim(["org.iso.18013.5.1", "family_name"])
         ])
 
         #expect(throws: DCQLMappingError.missingDoctype) {
@@ -80,7 +86,7 @@ struct DCQLMapperTests {
     @Test("Throws unsupportedDoctype for an unknown doctype value")
     func throwsUnsupportedDoctype() {
         let credential = credential(doctype: "com.example.unknown", claims: [
-            ClaimQuery(path: ["org.iso.18013.5.1", "family_name"], intentToRetain: false)
+            claim(["org.iso.18013.5.1", "family_name"])
         ])
 
         #expect(throws: DCQLMappingError.unsupportedDoctype("com.example.unknown")) {
@@ -91,7 +97,7 @@ struct DCQLMapperTests {
     @Test("Throws invalidClaimPath when a path does not have exactly two elements")
     func throwsInvalidClaimPath() {
         let credential = credential(claims: [
-            ClaimQuery(path: ["org.iso.18013.5.1"], intentToRetain: false)
+            claim(["org.iso.18013.5.1"])
         ])
 
         #expect(throws: DCQLMappingError.invalidClaimPath(["org.iso.18013.5.1"])) {

@@ -1,4 +1,5 @@
 import SharingCryptoService
+import SharingValidationService
 
 public enum DCQLMappingError: Error, Equatable, Sendable {
     case missingDoctype
