@@ -96,7 +96,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
 
     public func userDidApprove() {
         guard let session = getSession() else { return }
-        // TODO: DCMAW-xxxxx Steps 9–16 — build the DeviceResponse, sign DeviceAuth, JWE-encrypt and
+        // TODO: DCMAW-21231 — build the DeviceResponse, sign DeviceAuth, JWE-encrypt and
         // POST to response_uri. Until then approving cannot complete the flow.
         do {
             try session.transition(to: .processingResponse)
