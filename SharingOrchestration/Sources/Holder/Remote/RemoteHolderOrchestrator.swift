@@ -118,7 +118,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         session = nil
     }
 
-    public func resolve(_ missingPrerequisite: MissingPrerequisite) {
+    public func resolve(_: MissingPrerequisite) {
         // Remote flow has no prerequisite gate; nothing to resolve.
     }
 
