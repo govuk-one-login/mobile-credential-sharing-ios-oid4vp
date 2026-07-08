@@ -2,7 +2,7 @@ import SharingCryptoService
 import SharingValidationService
 
 // MARK: - RemoteHolderSession protocol
-public protocol RemoteHolderSessionProtocol: Sendable {
+public protocol RemoteHolderSessionProtocol: CredentialSessionProtocol, Sendable {
     var currentState: HolderSessionState { get }
     var validatedRequest: ValidatedRequest? { get }
     var deviceRequest: DeviceRequest? { get }
@@ -18,6 +18,10 @@ public final class RemoteHolderSession: RemoteHolderSessionProtocol, @unchecked 
     public private(set) var currentState: HolderSessionState = .notStarted
     public private(set) var validatedRequest: ValidatedRequest?
     public private(set) var deviceRequest: DeviceRequest?
+
+    // CredentialSessionProtocol
+    public private(set) var matchedCredential: Credential?
+    public private(set) var issuerSigned: IssuerSigned?
 
     init(_ initialState: HolderSessionState = .notStarted) {
         self.currentState = initialState
@@ -37,5 +41,19 @@ public final class RemoteHolderSession: RemoteHolderSessionProtocol, @unchecked 
         }
         self.validatedRequest = request
         self.deviceRequest = deviceRequest
+    }
+
+    public func setMatchedCredential(_ credential: Credential) throws {
+        guard currentState.kind == .remoteValidatingRequest else {
+            throw SessionError.incorrectSessionState(currentState.kind.rawValue)
+        }
+        self.matchedCredential = credential
+    }
+
+    public func setIssuerSigned(_ issuerSigned: IssuerSigned) throws {
+        guard currentState.kind == .remoteValidatingRequest else {
+            throw SessionError.incorrectSessionState(currentState.kind.rawValue)
+        }
+        self.issuerSigned = issuerSigned
     }
 }

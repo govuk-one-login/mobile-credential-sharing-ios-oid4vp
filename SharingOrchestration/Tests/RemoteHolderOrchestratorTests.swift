@@ -47,11 +47,13 @@ struct RemoteHolderOrchestratorTests {
 
     private func makeSUT(
         transport: RemoteTransportProtocol,
-        verifier: SignatureVerifying
+        verifier: SignatureVerifying,
+        handler: MockCredentialRequestHandler = MockCredentialRequestHandler()
     ) -> (RemoteHolderOrchestrator, RecordingDelegate) {
         let sut = RemoteHolderOrchestrator(
             deeplink: deeplink,
             remoteTransport: transport,
+            credentialRequestHandler: handler,
             signatureVerifier: verifier
         )
         let delegate = RecordingDelegate()
@@ -61,11 +63,13 @@ struct RemoteHolderOrchestratorTests {
 
     // MARK: - Happy Path
 
-    @Test("Runs fetch → validate → awaitingUserConsent and stores the mapped DeviceRequest")
+    @Test("Runs fetch → validate → retrieve+filter → awaitingUserConsent and stores the mapped DeviceRequest")
     func happyPath() async throws {
+        let handler = MockCredentialRequestHandler()
         let (sut, delegate) = makeSUT(
             transport: StubRemoteTransport(jwt: "any.jwt.value"),
-            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT()))
+            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT())),
+            handler: handler
         )
 
         await sut.processRequest()
@@ -79,6 +83,7 @@ struct RemoteHolderOrchestratorTests {
         #expect(deviceRequest.docRequests.first?.itemsRequest.nameSpaces.first?.elements.map(\.identifier)
             == ["family_name", "given_name"])
         #expect(sut.verifierIdentifier == "verifier.example.com")
+        #expect(handler.didCallFilterIssuerSigned == true)
     }
 
     @Test("verifierIdentifier is nil before the request is validated")
@@ -132,11 +137,42 @@ struct RemoteHolderOrchestratorTests {
         #expect(delegate.states.last?.kind == .failed)
     }
 
+    @Test("Credential retrieval failure transitions to failed")
+    func credentialRetrievalFailureFails() async {
+        let handler = MockCredentialRequestHandler()
+        handler.errorToThrow = CredentialRequestError.noCredentialsReturned
+        let (sut, delegate) = makeSUT(
+            transport: StubRemoteTransport(jwt: "any.jwt.value"),
+            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT())),
+            handler: handler
+        )
+
+        await sut.processRequest()
+
+        #expect(delegate.states.last?.kind == .failed)
+    }
+
+    @Test("Selective-disclosure filter failure transitions to failed")
+    func filterFailureFails() async {
+        let handler = MockCredentialRequestHandler()
+        handler.filterErrorToThrow = IssuerSignedFilterError.noMatchingAttributes
+        let (sut, delegate) = makeSUT(
+            transport: StubRemoteTransport(jwt: "any.jwt.value"),
+            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT())),
+            handler: handler
+        )
+
+        await sut.processRequest()
+
+        #expect(delegate.states.last?.kind == .failed)
+    }
+
     @Test("Malformed deeplink (missing scheme) transitions to failed before fetching")
     func malformedDeeplinkFails() async {
         let sut = RemoteHolderOrchestrator(
             deeplink: URL(string: "https://not-openid4vp.example.com")!,
             remoteTransport: StubRemoteTransport(jwt: "any.jwt.value"),
+            credentialRequestHandler: MockCredentialRequestHandler(),
             signatureVerifier: StubSignatureVerifier(result: .success(makeVerifiedJWT()))
         )
         let delegate = RecordingDelegate()

@@ -70,4 +70,41 @@ struct RemoteHolderSessionTests {
         #expect(sut.validatedRequest == nil)
         #expect(sut.deviceRequest == nil)
     }
+
+    // MARK: - CredentialSessionProtocol setters
+
+    @Test("setMatchedCredential and setIssuerSigned store values in remoteValidatingRequest state")
+    func credentialSettersSucceed() throws {
+        let sut = RemoteHolderSession()
+        try sut.transition(to: .remoteFetchingRequest)
+        try sut.transition(to: .remoteValidatingRequest)
+
+        let credential = Credential(id: "cred-1", rawCredential: Data())
+        let issuerSigned = IssuerSigned(nameSpaces: [:], issuerAuth: [])
+        try sut.setMatchedCredential(credential)
+        try sut.setIssuerSigned(issuerSigned)
+
+        #expect(sut.matchedCredential?.id == "cred-1")
+        #expect(sut.issuerSigned != nil)
+    }
+
+    @Test("setMatchedCredential throws when called from the wrong state")
+    func setMatchedCredentialThrowsFromWrongState() {
+        let sut = RemoteHolderSession()
+
+        #expect(throws: SessionError.incorrectSessionState(HolderSessionStateKind.notStarted.rawValue)) {
+            try sut.setMatchedCredential(Credential(id: "cred-1", rawCredential: Data()))
+        }
+        #expect(sut.matchedCredential == nil)
+    }
+
+    @Test("setIssuerSigned throws when called from the wrong state")
+    func setIssuerSignedThrowsFromWrongState() {
+        let sut = RemoteHolderSession()
+
+        #expect(throws: SessionError.incorrectSessionState(HolderSessionStateKind.notStarted.rawValue)) {
+            try sut.setIssuerSigned(IssuerSigned(nameSpaces: [:], issuerAuth: []))
+        }
+        #expect(sut.issuerSigned == nil)
+    }
 }
