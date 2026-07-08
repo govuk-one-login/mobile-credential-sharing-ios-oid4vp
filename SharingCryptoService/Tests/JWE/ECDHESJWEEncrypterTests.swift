@@ -112,8 +112,10 @@ struct ECDHESJWEEncrypterTests {
         let headerData = try #require(Data(base64URLEncoded: headerSegment))
         let header = try #require(try JSONSerialization.jsonObject(with: headerData) as? [String: Any])
         let epk = try #require(header["epk"] as? [String: Any])
-        let epkX = try #require(Data(base64URLEncoded: try #require(epk["x"] as? String)))
-        let epkY = try #require(Data(base64URLEncoded: try #require(epk["y"] as? String)))
+        let epkXString = try #require(epk["x"] as? String)
+        let epkYString = try #require(epk["y"] as? String)
+        let epkX = try #require(Data(base64URLEncoded: epkXString))
+        let epkY = try #require(Data(base64URLEncoded: epkYString))
 
         let ephemeralPublicKey = try P256.KeyAgreement.PublicKey(
             x963Representation: Data([0x04]) + epkX + epkY
