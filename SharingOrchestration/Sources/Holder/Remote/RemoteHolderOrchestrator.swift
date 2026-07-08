@@ -28,10 +28,12 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
     private let signatureVerifier: SignatureVerifying
     private let requestValidator: RequestValidator
     private let dcqlMapper: DCQLMapper
+    private let credentialRequestHandler: CredentialRequestHandlerProtocol
 
     public init(
         deeplink: URL,
         remoteTransport: RemoteTransportProtocol,
+        credentialRequestHandler: CredentialRequestHandlerProtocol,
         uriParser: URIParser = URIParser(),
         signatureVerifier: SignatureVerifying = JWTSignatureVerifier(),
         requestValidator: RequestValidator = RequestValidator(),
@@ -39,6 +41,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
     ) {
         self.deeplink = deeplink
         self.remoteTransport = remoteTransport
+        self.credentialRequestHandler = credentialRequestHandler
         self.uriParser = uriParser
         self.signatureVerifier = signatureVerifier
         self.requestValidator = requestValidator
@@ -81,6 +84,11 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
 
             let deviceRequest = try buildDeviceRequest(from: validatedRequest)
             try session.setValidatedRequest(validatedRequest, deviceRequest: deviceRequest)
+
+            // Retrieve the matching credential and filter it to the requested
+            // attributes (selective disclosure) before showing consent, mirroring the ISO flow.
+            try await credentialRequestHandler.requestAndValidateCredential(for: deviceRequest, in: session)
+            try credentialRequestHandler.filterIssuerSigned(for: deviceRequest, in: session)
 
             try session.transition(to: .awaitingUserConsent(deviceRequest))
             delegate?.orchestrator(didUpdateState: session.currentState)
