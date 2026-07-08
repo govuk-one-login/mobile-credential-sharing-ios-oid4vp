@@ -12,7 +12,12 @@ struct RemoteHolderSessionTests {
             responseURI: try #require(URL(string: "https://verifier.example.com/response")),
             state: nil,
             nonce: "abc123",
-            clientIdentifierPrefix: .x509SanDns(identifier: "verifier.example.com")
+            clientIdentifierPrefix: .x509SanDns(identifier: "verifier.example.com"),
+            verifierEncryptionKey: VerifierEncryptionKey(
+                xCoordinate: Array(repeating: 0x2a, count: 32),
+                yCoordinate: Array(repeating: 0x7b, count: 32),
+                keyID: "verifier-key-1"
+            )
         )
     }
 

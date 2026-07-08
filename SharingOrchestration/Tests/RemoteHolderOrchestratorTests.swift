@@ -22,7 +22,21 @@ struct RemoteHolderOrchestratorTests {
             "response_mode": "direct_post.jwt",
             "response_uri": "https://verifier.example.com/response",
             "nonce": "abc123",
-            "client_metadata": { "jwks": { "keys": [] } },
+            "client_metadata": {
+                "jwks": {
+                    "keys": [
+                        {
+                            "kty": "EC",
+                            "crv": "P-256",
+                            "use": "enc",
+                            "alg": "ECDH-ES",
+                            "x": "KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio",
+                            "y": "e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3s",
+                            "kid": "verifier-key-1"
+                        }
+                    ]
+                }
+            },
             "dcql_query": {
                 "credentials": [
                     {

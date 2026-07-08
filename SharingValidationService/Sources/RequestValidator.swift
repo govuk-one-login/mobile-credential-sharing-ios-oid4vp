@@ -61,9 +61,11 @@ public struct RequestValidator {
             }
         }
 
-        guard requestObject.clientMetadataData != nil else {
+        guard let clientMetadataData = requestObject.clientMetadataData else {
             throw .missingClientMetadata
         }
+
+        let verifierEncryptionKey = try decodeVerifierEncryptionKey(from: clientMetadataData)
 
         guard let dcqlData = requestObject.dcqlQueryData else {
             throw .missingDCQLQuery
@@ -91,7 +93,8 @@ public struct RequestValidator {
             responseURI: responseURI,
             state: requestObject.state,
             nonce: nonce,
-            clientIdentifierPrefix: uriMetadata.clientIdentifierPrefix
+            clientIdentifierPrefix: uriMetadata.clientIdentifierPrefix,
+            verifierEncryptionKey: verifierEncryptionKey
         )
     }
 }

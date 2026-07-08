@@ -6,18 +6,21 @@ public struct ValidatedRequest: Sendable, Equatable {
     public let state: String?
     public let nonce: String
     public let clientIdentifierPrefix: ClientIdentifierPrefix
+    public let verifierEncryptionKey: VerifierEncryptionKey
 
     public init(
         dcqlQuery: DCQLQuery,
         responseURI: URL,
         state: String?,
         nonce: String,
-        clientIdentifierPrefix: ClientIdentifierPrefix
+        clientIdentifierPrefix: ClientIdentifierPrefix,
+        verifierEncryptionKey: VerifierEncryptionKey
     ) {
         self.dcqlQuery = dcqlQuery
         self.responseURI = responseURI
         self.state = state
         self.nonce = nonce
         self.clientIdentifierPrefix = clientIdentifierPrefix
+        self.verifierEncryptionKey = verifierEncryptionKey
     }
 }
