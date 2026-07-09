@@ -3,7 +3,11 @@ import Foundation
 import SwiftCBOR
 
 /// The OID4VP `SessionTranscript` plus the artefacts derived alongside it.
-public struct OID4VPTranscript: Sendable, Equatable {
+///
+/// Not `Sendable`: `SessionTranscript`'s `Handover` carries `[CBOR]`, and SwiftCBOR's `CBOR` is not
+/// `Sendable`. This is an ephemeral return value consumed synchronously by the builder's caller — it
+/// never crosses an isolation boundary, so `Sendable` is unnecessary (and would need an escape hatch).
+public struct OID4VPTranscript {
     /// The transcript itself, for later CBOR use (e.g. the DeviceAuthentication payload).
     public let sessionTranscript: SessionTranscript
     /// The Tag-24 wrapped, CBOR-encoded transcript — the payload the DeviceAuth signature covers (Step 12).
