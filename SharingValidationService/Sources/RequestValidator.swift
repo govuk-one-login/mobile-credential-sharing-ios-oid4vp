@@ -93,6 +93,7 @@ public struct RequestValidator {
             responseURI: responseURI,
             state: requestObject.state,
             nonce: nonce,
+            clientID: uriMetadata.clientID,
             clientIdentifierPrefix: uriMetadata.clientIdentifierPrefix,
             verifierEncryptionKey: verifierEncryptionKey
         )

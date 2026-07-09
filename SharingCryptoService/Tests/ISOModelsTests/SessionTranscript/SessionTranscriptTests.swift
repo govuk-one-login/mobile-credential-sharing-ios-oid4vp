@@ -21,4 +21,25 @@ struct SessionTranscriptTests {
             .null
         ])
     }
+
+    @Test("Encodes an OID4VP handover with null engagement fields")
+    func sessionTranscriptEncodesOID4VPHandover() throws {
+        let clientIdHash: [UInt8] = Array(repeating: 0xaa, count: 32)
+        let responseUriHash: [UInt8] = Array(repeating: 0xbb, count: 32)
+        let sessionTranscript = SessionTranscript(
+            deviceEngagementBytes: nil,
+            eReaderKeyBytes: nil,
+            handover: .oid4vp(clientIdHash: clientIdHash, responseUriHash: responseUriHash, nonce: "abc123")
+        )
+
+        #expect(sessionTranscript.toCBOR(options: CBOROptions()) == [
+            .null,
+            .null,
+            .array([
+                .byteString(clientIdHash),
+                .byteString(responseUriHash),
+                .utf8String("abc123")
+            ])
+        ])
+    }
 }

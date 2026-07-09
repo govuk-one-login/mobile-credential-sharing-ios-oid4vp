@@ -84,6 +84,7 @@ struct RequestValidatorTests {
         #expect(result.responseURI.absoluteString == "https://verifier.example.com/response")
         #expect(result.nonce == "valid_nonce")
         #expect(result.state == nil)
+        #expect(result.clientID == "x509_san_dns:verifier.example.com")
         #expect(result.dcqlQuery.credentials.count == 1)
         #expect(result.dcqlQuery.credentials[0].format == "mso_mdoc")
     }
