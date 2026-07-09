@@ -29,6 +29,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
     private let requestValidator: RequestValidator
     private let dcqlMapper: DCQLMapper
     private let credentialRequestHandler: CredentialRequestHandlerProtocol
+    private let sessionTranscriptBuilder: OID4VPSessionTranscriptBuilder
 
     public init(
         deeplink: URL,
@@ -37,7 +38,8 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         uriParser: URIParser = URIParser(),
         signatureVerifier: SignatureVerifying = JWTSignatureVerifier(),
         requestValidator: RequestValidator = RequestValidator(),
-        dcqlMapper: DCQLMapper = DCQLMapper()
+        dcqlMapper: DCQLMapper = DCQLMapper(),
+        sessionTranscriptBuilder: OID4VPSessionTranscriptBuilder = OID4VPSessionTranscriptBuilder()
     ) {
         self.deeplink = deeplink
         self.remoteTransport = remoteTransport
@@ -46,6 +48,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         self.signatureVerifier = signatureVerifier
         self.requestValidator = requestValidator
         self.dcqlMapper = dcqlMapper
+        self.sessionTranscriptBuilder = sessionTranscriptBuilder
     }
 
     public func start() {
@@ -109,16 +112,38 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
 
     public func userDidApprove() {
         guard let session = getSession() else { return }
-        // TODO: DCMAW-21231 — build the DeviceResponse, sign DeviceAuth, JWE-encrypt and
-        // POST to response_uri. Until then approving cannot complete the flow.
+        // TODO: DCMAW-21231 — Step 11 (SessionTranscript) is built below. Steps 12–16 remain: sign
+        // DeviceAuth, assemble the DeviceResponse, JWE-encrypt and PUT to response_uri. Until they
+        // land, approving cannot complete the flow.
         do {
             try session.transition(to: .processingResponse)
             delegate?.orchestrator(didUpdateState: session.currentState)
+
+            try buildSessionTranscript(in: session)
+
             try session.transition(to: .failed(.generic("Response building not yet implemented")))
             delegate?.orchestrator(didUpdateState: session.currentState)
         } catch {
             handleFailure(error)
         }
+    }
+
+    /// Step 11: binds the response to this request by building the OID4VP `SessionTranscript` and the
+    /// `mdocGeneratedNonce` reused as the JWE `apu`, storing both for the response-building steps.
+    private func buildSessionTranscript(in session: RemoteHolderSessionProtocol) throws {
+        guard let request = session.validatedRequest else {
+            throw SessionError.generic("Validated request missing while building the session transcript")
+        }
+        let transcript = sessionTranscriptBuilder.build(
+            clientID: request.clientID,
+            responseURI: request.responseURI.absoluteString,
+            verifierNonce: request.nonce
+        )
+        try session.setSessionTranscript(
+            transcript.sessionTranscript,
+            bytes: transcript.sessionTranscriptBytes,
+            mdocGeneratedNonce: transcript.mdocGeneratedNonce
+        )
     }
 
     public func userDidDeny() {

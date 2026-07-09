@@ -199,8 +199,8 @@ struct RemoteHolderOrchestratorTests {
 
     // MARK: - User Decision
 
-    @Test("userDidApprove stubs out to failed until response building exists")
-    func approveStubsToFailed() async {
+    @Test("userDidApprove builds the session transcript then stubs to failed until response building exists")
+    func approveBuildsTranscriptThenStubsToFailed() async {
         let (sut, delegate) = makeSUT(
             transport: StubRemoteTransport(jwt: "any.jwt.value"),
             verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT()))
@@ -209,6 +209,11 @@ struct RemoteHolderOrchestratorTests {
 
         sut.userDidApprove()
 
+        // Step 11 ran: the transcript and mdocGeneratedNonce are on the session...
+        #expect(sut.session?.sessionTranscript != nil)
+        #expect(sut.session?.sessionTranscriptBytes?.isEmpty == false)
+        #expect(sut.session?.mdocGeneratedNonce?.count == 32)
+        // ...but the path still cannot complete (Steps 12–16 pending).
         #expect(delegate.states.last?.kind == .failed)
     }
 

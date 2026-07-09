@@ -6,9 +6,17 @@ public protocol RemoteHolderSessionProtocol: CredentialSessionProtocol, Sendable
     var currentState: HolderSessionState { get }
     var validatedRequest: ValidatedRequest? { get }
     var deviceRequest: DeviceRequest? { get }
+    var sessionTranscript: SessionTranscript? { get }
+    var sessionTranscriptBytes: [UInt8]? { get }
+    var mdocGeneratedNonce: [UInt8]? { get }
 
     func transition(to state: HolderSessionState) throws
     func setValidatedRequest(_ request: ValidatedRequest, deviceRequest: DeviceRequest) throws
+    func setSessionTranscript(
+        _ transcript: SessionTranscript,
+        bytes: [UInt8],
+        mdocGeneratedNonce: [UInt8]
+    ) throws
 }
 
 // MARK: - RemoteHolderSession
@@ -22,6 +30,11 @@ public final class RemoteHolderSession: RemoteHolderSessionProtocol, @unchecked 
     // CredentialSessionProtocol
     public private(set) var matchedCredential: Credential?
     public private(set) var issuerSigned: IssuerSigned?
+
+    // Response-building artefacts (Step 11 onward)
+    public private(set) var sessionTranscript: SessionTranscript?
+    public private(set) var sessionTranscriptBytes: [UInt8]?
+    public private(set) var mdocGeneratedNonce: [UInt8]?
 
     init(_ initialState: HolderSessionState = .notStarted) {
         self.currentState = initialState
@@ -55,5 +68,18 @@ public final class RemoteHolderSession: RemoteHolderSessionProtocol, @unchecked 
             throw SessionError.incorrectSessionState(currentState.kind.rawValue)
         }
         self.issuerSigned = issuerSigned
+    }
+
+    public func setSessionTranscript(
+        _ transcript: SessionTranscript,
+        bytes: [UInt8],
+        mdocGeneratedNonce: [UInt8]
+    ) throws {
+        guard currentState.kind == .processingResponse else {
+            throw SessionError.incorrectSessionState(currentState.kind.rawValue)
+        }
+        self.sessionTranscript = transcript
+        self.sessionTranscriptBytes = bytes
+        self.mdocGeneratedNonce = mdocGeneratedNonce
     }
 }

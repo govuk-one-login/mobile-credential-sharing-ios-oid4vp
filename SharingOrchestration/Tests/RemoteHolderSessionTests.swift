@@ -12,6 +12,7 @@ struct RemoteHolderSessionTests {
             responseURI: try #require(URL(string: "https://verifier.example.com/response")),
             state: nil,
             nonce: "abc123",
+            clientID: "x509_san_dns:verifier.example.com",
             clientIdentifierPrefix: .x509SanDns(identifier: "verifier.example.com"),
             verifierEncryptionKey: VerifierEncryptionKey(
                 xCoordinate: Array(repeating: 0x2a, count: 32),
@@ -111,5 +112,46 @@ struct RemoteHolderSessionTests {
             try sut.setIssuerSigned(IssuerSigned(nameSpaces: [:], issuerAuth: []))
         }
         #expect(sut.issuerSigned == nil)
+    }
+
+    // MARK: - setSessionTranscript
+
+    private func makeTranscript() -> SessionTranscript {
+        SessionTranscript(
+            deviceEngagementBytes: nil,
+            eReaderKeyBytes: nil,
+            handover: .oid4vp(
+                clientIdHash: Array(repeating: 0xaa, count: 32),
+                responseUriHash: Array(repeating: 0xbb, count: 32),
+                nonce: "abc123"
+            )
+        )
+    }
+
+    @Test("setSessionTranscript stores values in processingResponse state")
+    func setSessionTranscriptSucceeds() throws {
+        let sut = RemoteHolderSession()
+        try sut.transition(to: .remoteFetchingRequest)
+        try sut.transition(to: .remoteValidatingRequest)
+        try sut.transition(to: .awaitingUserConsent(makeDeviceRequest()))
+        try sut.transition(to: .processingResponse)
+
+        let nonce: [UInt8] = Array(repeating: 0x2a, count: 32)
+        try sut.setSessionTranscript(makeTranscript(), bytes: [0x01, 0x02], mdocGeneratedNonce: nonce)
+
+        #expect(sut.sessionTranscript != nil)
+        #expect(sut.sessionTranscriptBytes == [0x01, 0x02])
+        #expect(sut.mdocGeneratedNonce == nonce)
+    }
+
+    @Test("setSessionTranscript throws when called from the wrong state")
+    func setSessionTranscriptThrowsFromWrongState() {
+        let sut = RemoteHolderSession()
+
+        #expect(throws: SessionError.incorrectSessionState(HolderSessionStateKind.notStarted.rawValue)) {
+            try sut.setSessionTranscript(makeTranscript(), bytes: [0x01], mdocGeneratedNonce: [0x02])
+        }
+        #expect(sut.sessionTranscript == nil)
+        #expect(sut.mdocGeneratedNonce == nil)
     }
 }
