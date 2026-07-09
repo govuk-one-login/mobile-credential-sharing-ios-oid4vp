@@ -17,7 +17,21 @@ struct VerifiedRequestObjectDecodingTests {
             "nonce": "valid_nonce",
             "state": "session.state",
             "dcql_query": { "credentials": [{ "id": "c1", "format": "mso_mdoc" }] },
-            "client_metadata": { "jwks": { "keys": [] } }
+            "client_metadata": {
+                "jwks": {
+                    "keys": [
+                        {
+                            "kty": "EC",
+                            "crv": "P-256",
+                            "use": "enc",
+                            "alg": "ECDH-ES",
+                            "x": "KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio",
+                            "y": "e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3s",
+                            "kid": "verifier-key-1"
+                        }
+                    ]
+                }
+            }
         }
         """
         return Data(json.utf8)

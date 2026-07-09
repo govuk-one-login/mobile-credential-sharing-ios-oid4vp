@@ -28,6 +28,7 @@ public enum ValidationError: Error, Sendable, Equatable {
     case clientIDSANMismatch
     case invalidStateCharacters
     case missingClientMetadata
+    case invalidVerifierMetadata
 
     // MARK: - DCQL
 

@@ -6,6 +6,11 @@ import Testing
 @Suite("RequestValidator Tests")
 // swiftlint:disable:next type_body_length
 struct RequestValidatorTests {
+    // A well-formed `client_metadata` carrying a single EC P-256 encryption JWK.
+    // The coordinates are arbitrary 32-byte values; on-curve validity is the crypto module's concern.
+    static let validEncryptionKeyX = "KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio"
+    static let validEncryptionKeyY = "e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3s"
+
     let sut = RequestValidator()
 
     private func makeValidURIMetadata(clientID: String = "x509_san_dns:verifier.example.com") -> URIMetadata {
@@ -48,7 +53,7 @@ struct RequestValidatorTests {
         nonce: String? = "valid_nonce",
         state: String? = nil,
         dcqlQueryData: Data? = nil,
-        clientMetadataData: Data? = Data("{}".utf8),
+        clientMetadataData: Data? = try? makeClientMetadata(),
         leafCertificateSANs: [String] = ["verifier.example.com"]
     ) -> VerifiedRequestObject {
         VerifiedRequestObject(
@@ -354,7 +359,7 @@ struct RequestValidatorTests {
     }
 
     @Test("Throws missingDCQLQuery when dcqlQueryData nil")
-    func throwsMissingDCQL() {
+    func throwsMissingDCQL() throws {
         let modified = VerifiedRequestObject(
             headerTyp: "oauth-authz-req+jwt",
             aud: "https://self-issued.me/v2",
@@ -366,7 +371,7 @@ struct RequestValidatorTests {
             nonce: "valid_nonce",
             state: nil,
             dcqlQueryData: nil,
-            clientMetadataData: Data("{}".utf8),
+            clientMetadataData: try Self.makeClientMetadata(),
             leafCertificateSANs: ["verifier.example.com"]
         )
         let uriMetadata = makeValidURIMetadata()
@@ -403,5 +408,138 @@ struct RequestValidatorTests {
         #expect(throws: ValidationError.noSupportedCredentialQueries) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
+    }
+
+    // MARK: - Verifier Encryption Key
+
+    @Test("Decodes verifier encryption key onto the validated request")
+    func decodesVerifierEncryptionKey() throws {
+        let requestObject = makeValidRequestObject()
+        let uriMetadata = makeValidURIMetadata()
+
+        let result = try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+
+        #expect(result.verifierEncryptionKey.xCoordinate.count == 32)
+        #expect(result.verifierEncryptionKey.yCoordinate.count == 32)
+        #expect(result.verifierEncryptionKey.keyID == "verifier-key-1")
+    }
+
+    @Test("Decodes verifier encryption key when kid is absent")
+    func decodesVerifierEncryptionKeyWithoutKeyID() throws {
+        let requestObject = makeValidRequestObject(clientMetadataData: try Self.makeClientMetadata(kid: nil))
+        let uriMetadata = makeValidURIMetadata()
+
+        let result = try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+
+        #expect(result.verifierEncryptionKey.keyID == nil)
+    }
+
+    @Test("Selects the encryption key when a signing key is also present")
+    func selectsEncryptionKeyAmongMany() throws {
+        let signingKey: [String: Any] = [
+            "kty": "EC", "crv": "P-256", "use": "sig", "alg": "ES256",
+            "x": Self.validEncryptionKeyX, "y": Self.validEncryptionKeyY, "kid": "sig-key"
+        ]
+        let encryptionKey: [String: Any] = [
+            "kty": "EC", "crv": "P-256", "use": "enc", "alg": "ECDH-ES",
+            "x": Self.validEncryptionKeyX, "y": Self.validEncryptionKeyY, "kid": "enc-key"
+        ]
+        let metadata = try JSONSerialization.data(withJSONObject: ["jwks": ["keys": [signingKey, encryptionKey]]])
+        let requestObject = makeValidRequestObject(clientMetadataData: metadata)
+        let uriMetadata = makeValidURIMetadata()
+
+        let result = try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+
+        #expect(result.verifierEncryptionKey.keyID == "enc-key")
+    }
+
+    @Test("Throws invalidVerifierMetadata when jwks is absent")
+    func throwsInvalidVerifierMetadataNoJWKS() {
+        let requestObject = makeValidRequestObject(clientMetadataData: Data("{}".utf8))
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.invalidVerifierMetadata) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Throws invalidVerifierMetadata when keys array is empty")
+    func throwsInvalidVerifierMetadataEmptyKeys() throws {
+        let metadata = try JSONSerialization.data(withJSONObject: ["jwks": ["keys": []]])
+        let requestObject = makeValidRequestObject(clientMetadataData: metadata)
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.invalidVerifierMetadata) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Throws invalidVerifierMetadata when only a signing key is present")
+    func throwsInvalidVerifierMetadataSigningKeyOnly() throws {
+        let requestObject = makeValidRequestObject(clientMetadataData: try Self.makeClientMetadata(use: "sig"))
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.invalidVerifierMetadata) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Throws invalidVerifierMetadata when curve is not P-256")
+    func throwsInvalidVerifierMetadataWrongCurve() throws {
+        let requestObject = makeValidRequestObject(clientMetadataData: try Self.makeClientMetadata(crv: "P-384"))
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.invalidVerifierMetadata) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Throws invalidVerifierMetadata when alg is missing")
+    func throwsInvalidVerifierMetadataMissingAlg() throws {
+        let requestObject = makeValidRequestObject(clientMetadataData: try Self.makeClientMetadata(alg: nil))
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.invalidVerifierMetadata) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Throws invalidVerifierMetadata when a coordinate is the wrong length")
+    func throwsInvalidVerifierMetadataShortCoordinate() throws {
+        // "QUJD" decodes to "ABC" — 3 bytes, not 32.
+        let requestObject = makeValidRequestObject(clientMetadataData: try Self.makeClientMetadata(x: "QUJD"))
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.invalidVerifierMetadata) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    @Test("Throws invalidVerifierMetadata when a coordinate is not base64url")
+    func throwsInvalidVerifierMetadataNonBase64Coordinate() throws {
+        let requestObject = makeValidRequestObject(clientMetadataData: try Self.makeClientMetadata(y: "not base64!!"))
+        let uriMetadata = makeValidURIMetadata()
+
+        #expect(throws: ValidationError.invalidVerifierMetadata) {
+            try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+        }
+    }
+
+    private static func makeClientMetadata(
+        kty: String = "EC",
+        crv: String = "P-256",
+        use: String = "enc",
+        alg: String? = "ECDH-ES",
+        x: String? = validEncryptionKeyX,
+        y: String? = validEncryptionKeyY,
+        kid: String? = "verifier-key-1"
+    ) throws -> Data {
+        var key: [String: Any] = ["kty": kty, "crv": crv, "use": use]
+        key["alg"] = alg
+        key["x"] = x
+        key["y"] = y
+        key["kid"] = kid
+        let metadata: [String: Any] = ["jwks": ["keys": [key]]]
+        return try JSONSerialization.data(withJSONObject: metadata)
     }
 }
