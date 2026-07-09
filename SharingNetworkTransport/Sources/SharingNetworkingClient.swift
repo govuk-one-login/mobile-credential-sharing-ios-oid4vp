@@ -35,55 +35,19 @@ public struct SharingNetworkingClient: RemoteTransportProtocol {
     }
 
     public func submitResponse(
-        vpToken: String,
-        state: String?,
-        to responseURI: URL
-    ) async throws -> URL? {
-        let body = buildFormBody(vpToken: vpToken, state: state)
+        encryptedResponse jwe: String,
+        to uploadURL: URL
+    ) async throws {
+        var request = URLRequest(url: uploadURL)
+        request.httpMethod = "PUT"
+        request.httpBody = Data(jwe.utf8)
+        // Must match the Content-Type the backend signed the presigned URL with, or S3 rejects the
+        // upload with a 403. The body is the raw JWE despite the form-urlencoded content type.
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
-        var request = URLRequest(url: responseURI)
-        request.httpMethod = "POST"
-        request.httpBody = body
-        request.setValue(
-            "application/x-www-form-urlencoded",
-            forHTTPHeaderField: "Content-Type"
-        )
-
-        let responseData = try await makeNetworkClient()
+        // The presigned S3 PUT returns no body; a thrown error signals a failed upload.
+        _ = try await makeNetworkClient()
             .request(request)
             .execute()
-
-        return parseRedirectURI(from: responseData)
-    }
-
-    private func buildFormBody(vpToken: String, state: String?) -> Data {
-        var components: [String] = [
-            "vp_token=\(formURLEncode(vpToken))"
-        ]
-
-        if let state {
-            components.append("state=\(formURLEncode(state))")
-        }
-
-        let bodyString = components.joined(separator: "&")
-        return Data(bodyString.utf8)
-    }
-
-    private func formURLEncode(_ value: String) -> String {
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-._~")
-        return value.addingPercentEncoding(
-            withAllowedCharacters: allowed
-        ) ?? value
-    }
-
-    private func parseRedirectURI(from data: Data) -> URL? {
-        guard let json = try? JSONSerialization.jsonObject(
-            with: data
-        ) as? [String: Any],
-              let uriString = json["redirect_uri"] as? String else {
-            return nil
-        }
-        return URL(string: uriString)
     }
 }

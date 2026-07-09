@@ -256,9 +256,7 @@ private struct StubRemoteTransport: RemoteTransportProtocol {
         return jwt ?? ""
     }
 
-    func submitResponse(vpToken: String, state: String?, to responseURI: URL) async throws -> URL? {
-        nil
-    }
+    func submitResponse(encryptedResponse jwe: String, to uploadURL: URL) async throws {}
 }
 
 private struct StubSignatureVerifier: SignatureVerifying {
