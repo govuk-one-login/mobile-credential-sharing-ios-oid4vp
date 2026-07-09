@@ -39,8 +39,8 @@ public class CredentialPresenter {
     }
 
     /// Returns a view controller that manages the OID4VP (Remote) sharing journey initiated by a
-    /// `openid4vp://` deeplink. The SDK fetches and validates the request, then shows the consent screen.
-    /// - Parameter deeplink: The `openid4vp://` engagement URL received by the app.
+    /// `mdoc-openid4vp://` deeplink. The SDK fetches and validates the request, then shows the consent screen.
+    /// - Parameter deeplink: The `mdoc-openid4vp://` engagement URL received by the app.
     public func viewControllerForRemoteSharingJourney(deeplink: URL) -> UIViewController {
         let transport = SharingNetworkingClient()
         let handler = CredentialRequestHandler(credentialProvider: credentialProvider)

@@ -9,8 +9,8 @@ import Testing
 @Suite("RemoteHolderOrchestrator Tests")
 struct RemoteHolderOrchestratorTests {
     // A well-formed engagement URI whose client_id matches the request object's SAN + client_id.
-    let deeplink = URL(string: "openid4vp://?client_id=x509_san_dns%3Averifier.example.com"
-        + "&response_type=vp_token&nonce=abc123&request_uri=https%3A%2F%2Fverifier.example.com%2Freq")!
+    let deeplink = URL(string: "mdoc-openid4vp://?client_id=x509_san_dns%3Averifier.example.com"
+        + "&request_uri=https%3A%2F%2Fverifier.example.com%2Freq")!
 
     private func makeVerifiedJWT() -> VerifiedJWT {
         let header = Data(#"{"typ":"JWT","alg":"ES256"}"#.utf8)
