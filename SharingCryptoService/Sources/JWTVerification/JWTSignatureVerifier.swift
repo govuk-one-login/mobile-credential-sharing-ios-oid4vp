@@ -68,8 +68,8 @@ extension JWTSignatureVerifier {
         guard let typ = header["typ"] as? String else {
             throw .unsupportedType("none")
         }
-        // RFC 9101 (JAR): the Authorization Request Object is typed as `oauth-authz-req+jwt`.
-        guard typ == "oauth-authz-req+jwt" else {
+        // The Authorization Request Object is typed as `JWT` per the tech design (Step 3).
+        guard typ == "JWT" else {
             throw .unsupportedType(typ)
         }
     }

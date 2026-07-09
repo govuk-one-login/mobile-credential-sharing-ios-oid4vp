@@ -13,7 +13,7 @@ struct RemoteHolderOrchestratorTests {
         + "&response_type=vp_token&nonce=abc123&request_uri=https%3A%2F%2Fverifier.example.com%2Freq")!
 
     private func makeVerifiedJWT() -> VerifiedJWT {
-        let header = Data(#"{"typ":"oauth-authz-req+jwt","alg":"ES256"}"#.utf8)
+        let header = Data(#"{"typ":"JWT","alg":"ES256"}"#.utf8)
         let payload = Data("""
         {
             "aud": "https://self-issued.me/v2",
@@ -138,7 +138,7 @@ struct RemoteHolderOrchestratorTests {
 
     @Test("Validation failure (wrong audience) transitions to failed")
     func validationFailureFails() async {
-        let header = Data(#"{"typ":"oauth-authz-req+jwt","alg":"ES256"}"#.utf8)
+        let header = Data(#"{"typ":"JWT","alg":"ES256"}"#.utf8)
         let payload = Data(#"{"aud":"wrong","response_type":"vp_token"}"#.utf8)
         let badJWT = VerifiedJWT(headerData: header, payloadData: payload, leafCertificateSANs: [])
         let (sut, delegate) = makeSUT(
