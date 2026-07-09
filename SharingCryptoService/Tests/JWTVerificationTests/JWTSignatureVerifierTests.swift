@@ -114,7 +114,7 @@ struct JWTSignatureVerifierTests {
     @Test("Throws unsupportedAlgorithm when header specifies RS256")
     func throwsUnsupportedAlgorithmForRS256() throws {
         let payload = Data(#"{"sub":"user"}"#.utf8)
-        let headerJSON = Data(#"{"alg":"RS256","typ":"oauth-authz-req+jwt","x5c":["AAAA"]}"#.utf8)
+        let headerJSON = Data(#"{"alg":"RS256","typ":"JWT","x5c":["AAAA"]}"#.utf8)
         let jwt = try helper.signWithCustomHeader(headerJSON, payload: payload)
 
         #expect(throws: JWTVerificationError.unsupportedAlgorithm("RS256")) {
@@ -125,7 +125,7 @@ struct JWTSignatureVerifierTests {
     @Test("Throws unsupportedAlgorithm when alg field is missing")
     func throwsUnsupportedAlgorithmWhenMissing() throws {
         let payload = Data(#"{"sub":"user"}"#.utf8)
-        let headerJSON = Data(#"{"typ":"oauth-authz-req+jwt","x5c":["AAAA"]}"#.utf8)
+        let headerJSON = Data(#"{"typ":"JWT","x5c":["AAAA"]}"#.utf8)
         let jwt = try helper.signWithCustomHeader(headerJSON, payload: payload)
 
         #expect(throws: JWTVerificationError.unsupportedAlgorithm("none")) {
@@ -135,7 +135,7 @@ struct JWTSignatureVerifierTests {
 
     // MARK: - Wrong Type
 
-    @Test("Throws unsupportedType when typ is not oauth-authz-req+jwt")
+    @Test("Throws unsupportedType when typ is not JWT")
     func throwsUnsupportedTypeForWrongType() throws {
         let payload = Data(#"{"sub":"user"}"#.utf8)
         let headerJSON = Data(#"{"alg":"ES256","typ":"at+jwt","x5c":["AAAA"]}"#.utf8)
@@ -146,13 +146,15 @@ struct JWTSignatureVerifierTests {
         }
     }
 
-    @Test("Throws unsupportedType when typ is the bare JWT value")
-    func throwsUnsupportedTypeForBareJWT() throws {
+    @Test("Accepts the JWT typ value and proceeds past the type check")
+    func acceptsJWTTypValue() throws {
+        // typ "JWT" passes validateType; verification then fails downstream on the bogus certificate,
+        // proving the type check no longer rejects "JWT".
         let payload = Data(#"{"sub":"user"}"#.utf8)
         let headerJSON = Data(#"{"alg":"ES256","typ":"JWT","x5c":["AAAA"]}"#.utf8)
         let jwt = try helper.signWithCustomHeader(headerJSON, payload: payload)
 
-        #expect(throws: JWTVerificationError.unsupportedType("JWT")) {
+        #expect(throws: JWTVerificationError.invalidCertificateData) {
             try sut.verify(jwt: jwt)
         }
     }
@@ -229,7 +231,7 @@ struct JWTSignatureVerifierTests {
 
     @Test("Throws invalidCertificateData when x5c contains non-base64 data")
     func throwsInvalidCertificateForBadBase64() throws {
-        let headerJSON = Data(#"{"alg":"ES256","typ":"oauth-authz-req+jwt","x5c":["!!!not-base64!!!"]}"#.utf8)
+        let headerJSON = Data(#"{"alg":"ES256","typ":"JWT","x5c":["!!!not-base64!!!"]}"#.utf8)
         let payload = Data(#"{"sub":"user"}"#.utf8)
         let jwt = try helper.signWithCustomHeader(headerJSON, payload: payload)
 
@@ -243,7 +245,7 @@ struct JWTSignatureVerifierTests {
         let garbage = Data([0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01, 0x02, 0x03])
         let headerDict: [String: Any] = [
             "alg": "ES256",
-            "typ": "oauth-authz-req+jwt",
+            "typ": "JWT",
             "x5c": [garbage.base64EncodedString()]
         ]
         let headerJSON = try JSONSerialization.data(withJSONObject: headerDict)
@@ -257,7 +259,7 @@ struct JWTSignatureVerifierTests {
 
     @Test("Throws invalidCertificateData when x5c array is empty")
     func throwsMissingX5CForEmptyArray() throws {
-        let headerJSON = Data(#"{"alg":"ES256","typ":"oauth-authz-req+jwt","x5c":[]}"#.utf8)
+        let headerJSON = Data(#"{"alg":"ES256","typ":"JWT","x5c":[]}"#.utf8)
         let payload = Data(#"{"sub":"user"}"#.utf8)
         let jwt = try helper.signWithCustomHeader(headerJSON, payload: payload)
 

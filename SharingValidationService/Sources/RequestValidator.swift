@@ -8,7 +8,7 @@ public struct RequestValidator {
         requestObject: VerifiedRequestObject,
         uriMetadata: URIMetadata
     ) throws(ValidationError) -> ValidatedRequest {
-        guard requestObject.headerTyp == "oauth-authz-req+jwt" else {
+        guard requestObject.headerTyp == "JWT" else {
             throw .invalidTypHeader(requestObject.headerTyp)
         }
 

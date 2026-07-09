@@ -17,8 +17,6 @@ struct RequestValidatorTests {
         URIMetadata(
             clientID: clientID,
             clientIdentifierPrefix: .x509SanDns(identifier: "verifier.example.com"),
-            responseType: "vp_token",
-            nonce: "uri_nonce",
             requestURI: URL(string: "https://verifier.example.com/request")!
         )
     }
@@ -43,7 +41,7 @@ struct RequestValidatorTests {
     }
 
     private func makeValidRequestObject(
-        headerTyp: String? = "oauth-authz-req+jwt",
+        headerTyp: String? = "JWT",
         aud: String? = "https://self-issued.me/v2",
         clientID: String? = "x509_san_dns:verifier.example.com",
         responseType: String? = "vp_token",
@@ -141,10 +139,10 @@ struct RequestValidatorTests {
 
     @Test("Throws invalidTypHeader when typ is wrong")
     func throwsInvalidTypHeaderWrongValue() {
-        let requestObject = makeValidRequestObject(headerTyp: "JWT")
+        let requestObject = makeValidRequestObject(headerTyp: "oauth-authz-req+jwt")
         let uriMetadata = makeValidURIMetadata()
 
-        #expect(throws: ValidationError.invalidTypHeader("JWT")) {
+        #expect(throws: ValidationError.invalidTypHeader("oauth-authz-req+jwt")) {
             try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
         }
     }
@@ -338,8 +336,6 @@ struct RequestValidatorTests {
         let uriMetadata = URIMetadata(
             clientID: clientID,
             clientIdentifierPrefix: .did(identifier: "example:123"),
-            responseType: "vp_token",
-            nonce: "uri_nonce",
             requestURI: URL(string: "https://verifier.example.com/request")!
         )
 
@@ -361,7 +357,7 @@ struct RequestValidatorTests {
     @Test("Throws missingDCQLQuery when dcqlQueryData nil")
     func throwsMissingDCQL() throws {
         let modified = VerifiedRequestObject(
-            headerTyp: "oauth-authz-req+jwt",
+            headerTyp: "JWT",
             aud: "https://self-issued.me/v2",
             clientID: "x509_san_dns:verifier.example.com",
             responseType: "vp_token",

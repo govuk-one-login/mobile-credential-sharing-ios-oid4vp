@@ -8,7 +8,7 @@ public struct URIParser {
     public init() {}
 
     public func parse(uri: URL) throws(ValidationError) -> URIMetadata {
-        guard uri.scheme?.lowercased() == "openid4vp" else {
+        guard uri.scheme?.lowercased() == "mdoc-openid4vp" else {
             throw .missingScheme
         }
 
@@ -22,20 +22,10 @@ public struct URIParser {
             uniquingKeysWith: { first, _ in first }
         )
 
+        // The engagement deeplink carries only client_id and request_uri; response_type and nonce live
+        // inside the signed Request Object fetched from request_uri (validated later by RequestValidator).
         guard let clientID = params["client_id"], !clientID.isEmpty else {
             throw .missingClientID
-        }
-
-        guard let responseType = params["response_type"], !responseType.isEmpty else {
-            throw .missingResponseType
-        }
-
-        guard let nonce = params["nonce"], !nonce.isEmpty else {
-            throw .missingNonce
-        }
-
-        guard Self.isASCIIURLSafe(nonce) else {
-            throw .invalidNonceCharacters
         }
 
         guard let requestURIString = params["request_uri"], !requestURIString.isEmpty else {
@@ -53,8 +43,6 @@ public struct URIParser {
         return URIMetadata(
             clientID: clientID,
             clientIdentifierPrefix: clientIdentifierPrefix,
-            responseType: responseType,
-            nonce: nonce,
             requestURI: requestURI
         )
     }

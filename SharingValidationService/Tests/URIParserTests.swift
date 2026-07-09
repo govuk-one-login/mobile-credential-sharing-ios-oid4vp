@@ -8,23 +8,32 @@ struct URIParserTests {
 
     // MARK: - Happy Path
 
-    @Test("Parses valid URI with all required parameters")
+    @Test("Parses valid engagement URI with client_id and request_uri")
     func parsesValidURI() throws {
-        let uri = URL(string: "openid4vp://?client_id=verifier.example.com&response_type=vp_token&nonce=n0nce_value-123.test~ok&request_uri=https%3A%2F%2Fverifier.example.com%2Frequest%2F123")!
+        let uri = URL(string: "mdoc-openid4vp://?client_id=verifier.example.com&request_uri=https%3A%2F%2Fverifier.example.com%2Frequest%2F123")!
 
         let result = try sut.parse(uri: uri)
 
         #expect(result.clientID == "verifier.example.com")
-        #expect(result.responseType == "vp_token")
-        #expect(result.nonce == "n0nce_value-123.test~ok")
         #expect(result.requestURI.absoluteString == "https://verifier.example.com/request/123")
+    }
+
+    @Test("Parses a real-shape URI: raw-colon client_id and a presigned S3 request_uri with nested query")
+    func parsesRealShapeURI() throws {
+        let uri = URL(string: "mdoc-openid4vp://?client_id=x509_san_dns:verifier.example.gov.uk&request_uri=https%3A%2F%2Fverifier-be-dev-requests.s3.eu-west-2.amazonaws.com%2Ftx_1bc9c477%3FX-Amz-Algorithm%3DAWS4-HMAC-SHA256%26X-Amz-Expires%3D300%26X-Amz-Signature%3Da8c88ea84dc0e5fa0cec529711251b48")!
+
+        let result = try sut.parse(uri: uri)
+
+        #expect(result.clientID == "x509_san_dns:verifier.example.gov.uk")
+        #expect(result.clientIdentifierPrefix == .x509SanDns(identifier: "verifier.example.gov.uk"))
+        #expect(result.requestURI.host == "verifier-be-dev-requests.s3.eu-west-2.amazonaws.com")
     }
 
     // MARK: - Client Identifier Prefix
 
     @Test("Parses URI with x509_san_dns client_id prefix")
     func parsesX509SanDnsPrefix() throws {
-        let uri = URL(string: "openid4vp://?client_id=x509_san_dns%3Averifier.example.com&response_type=vp_token&nonce=abc&request_uri=https%3A%2F%2Fexample.com%2Freq")!
+        let uri = URL(string: "mdoc-openid4vp://?client_id=x509_san_dns%3Averifier.example.com&request_uri=https%3A%2F%2Fexample.com%2Freq")!
 
         let result = try sut.parse(uri: uri)
 
@@ -33,7 +42,7 @@ struct URIParserTests {
 
     @Test("Parses URI with x509_san_uri client_id prefix")
     func parsesX509SanUriPrefix() throws {
-        let uri = URL(string: "openid4vp://?client_id=x509_san_uri%3Ahttps%3A%2F%2Fverifier.example.com&response_type=vp_token&nonce=abc&request_uri=https%3A%2F%2Fexample.com%2Freq")!
+        let uri = URL(string: "mdoc-openid4vp://?client_id=x509_san_uri%3Ahttps%3A%2F%2Fverifier.example.com&request_uri=https%3A%2F%2Fexample.com%2Freq")!
 
         let result = try sut.parse(uri: uri)
 
@@ -42,7 +51,7 @@ struct URIParserTests {
 
     @Test("Parses URI with did client_id prefix")
     func parsesDidPrefix() throws {
-        let uri = URL(string: "openid4vp://?client_id=did%3Aexample%3A123abc&response_type=vp_token&nonce=abc&request_uri=https%3A%2F%2Fexample.com%2Freq")!
+        let uri = URL(string: "mdoc-openid4vp://?client_id=did%3Aexample%3A123abc&request_uri=https%3A%2F%2Fexample.com%2Freq")!
 
         let result = try sut.parse(uri: uri)
 
@@ -51,7 +60,7 @@ struct URIParserTests {
 
     @Test("Parses URI with redirect_uri client_id prefix")
     func parsesRedirectUriPrefix() throws {
-        let uri = URL(string: "openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Fcb&response_type=vp_token&nonce=abc&request_uri=https%3A%2F%2Fexample.com%2Freq")!
+        let uri = URL(string: "mdoc-openid4vp://?client_id=redirect_uri%3Ahttps%3A%2F%2Fexample.com%2Fcb&request_uri=https%3A%2F%2Fexample.com%2Freq")!
 
         let result = try sut.parse(uri: uri)
 
@@ -60,7 +69,7 @@ struct URIParserTests {
 
     @Test("Parses URI with verifier_attestation client_id prefix")
     func parsesVerifierAttestationPrefix() throws {
-        let uri = URL(string: "openid4vp://?client_id=verifier_attestation%3Averifier-id-xyz&response_type=vp_token&nonce=abc&request_uri=https%3A%2F%2Fexample.com%2Freq")!
+        let uri = URL(string: "mdoc-openid4vp://?client_id=verifier_attestation%3Averifier-id-xyz&request_uri=https%3A%2F%2Fexample.com%2Freq")!
 
         let result = try sut.parse(uri: uri)
 
@@ -69,7 +78,7 @@ struct URIParserTests {
 
     @Test("Parses URI with pre-registered client_id (no known prefix)")
     func parsesPreRegisteredClientID() throws {
-        let uri = URL(string: "openid4vp://?client_id=my-verifier-app&response_type=vp_token&nonce=abc&request_uri=https%3A%2F%2Fexample.com%2Freq")!
+        let uri = URL(string: "mdoc-openid4vp://?client_id=my-verifier-app&request_uri=https%3A%2F%2Fexample.com%2Freq")!
 
         let result = try sut.parse(uri: uri)
 
@@ -78,9 +87,9 @@ struct URIParserTests {
 
     // MARK: - Error Cases
 
-    @Test("Throws missingScheme for non-openid4vp URI")
+    @Test("Throws missingScheme for non-mdoc-openid4vp URI")
     func throwsMissingSchemeForWrongScheme() {
-        let uri = URL(string: "https://verifier.example.com?client_id=x&response_type=vp_token&nonce=abc&request_uri=https%3A%2F%2Fexample.com%2Freq")!
+        let uri = URL(string: "openid4vp://?client_id=x&request_uri=https%3A%2F%2Fexample.com%2Freq")!
 
         #expect(throws: ValidationError.missingScheme) {
             try sut.parse(uri: uri)
@@ -89,7 +98,7 @@ struct URIParserTests {
 
     @Test("Throws missingClientID when client_id absent")
     func throwsMissingClientID() {
-        let uri = URL(string: "openid4vp://?response_type=vp_token&nonce=abc&request_uri=https%3A%2F%2Fexample.com%2Freq")!
+        let uri = URL(string: "mdoc-openid4vp://?request_uri=https%3A%2F%2Fexample.com%2Freq")!
 
         #expect(throws: ValidationError.missingClientID) {
             try sut.parse(uri: uri)
@@ -98,52 +107,16 @@ struct URIParserTests {
 
     @Test("Throws missingClientID when client_id is empty")
     func throwsMissingClientIDWhenEmpty() {
-        let uri = URL(string: "openid4vp://?client_id=&response_type=vp_token&nonce=abc&request_uri=https%3A%2F%2Fexample.com%2Freq")!
+        let uri = URL(string: "mdoc-openid4vp://?client_id=&request_uri=https%3A%2F%2Fexample.com%2Freq")!
 
         #expect(throws: ValidationError.missingClientID) {
             try sut.parse(uri: uri)
         }
     }
 
-    @Test("Throws missingResponseType when response_type absent")
-    func throwsMissingResponseType() {
-        let uri = URL(string: "openid4vp://?client_id=verifier&nonce=abc&request_uri=https%3A%2F%2Fexample.com%2Freq")!
-
-        #expect(throws: ValidationError.missingResponseType) {
-            try sut.parse(uri: uri)
-        }
-    }
-
-    @Test("Throws missingNonce when nonce absent")
-    func throwsMissingNonce() {
-        let uri = URL(string: "openid4vp://?client_id=verifier&response_type=vp_token&request_uri=https%3A%2F%2Fexample.com%2Freq")!
-
-        #expect(throws: ValidationError.missingNonce) {
-            try sut.parse(uri: uri)
-        }
-    }
-
-    @Test("Throws invalidNonceCharacters for nonce with spaces")
-    func throwsInvalidNonceWithSpaces() {
-        let uri = URL(string: "openid4vp://?client_id=verifier&response_type=vp_token&nonce=has%20space&request_uri=https%3A%2F%2Fexample.com%2Freq")!
-
-        #expect(throws: ValidationError.invalidNonceCharacters) {
-            try sut.parse(uri: uri)
-        }
-    }
-
-    @Test("Throws invalidNonceCharacters for nonce with special characters")
-    func throwsInvalidNonceWithSpecialChars() {
-        let uri = URL(string: "openid4vp://?client_id=verifier&response_type=vp_token&nonce=bad%40nonce&request_uri=https%3A%2F%2Fexample.com%2Freq")!
-
-        #expect(throws: ValidationError.invalidNonceCharacters) {
-            try sut.parse(uri: uri)
-        }
-    }
-
     @Test("Throws missingRequestURI when request_uri absent")
     func throwsMissingRequestURI() {
-        let uri = URL(string: "openid4vp://?client_id=verifier&response_type=vp_token&nonce=abc")!
+        let uri = URL(string: "mdoc-openid4vp://?client_id=verifier")!
 
         #expect(throws: ValidationError.missingRequestURI) {
             try sut.parse(uri: uri)
@@ -152,7 +125,7 @@ struct URIParserTests {
 
     @Test("Throws invalidRequestURI when request_uri is not a valid URL")
     func throwsInvalidRequestURI() {
-        let uri = URL(string: "openid4vp://?client_id=verifier&response_type=vp_token&nonce=abc&request_uri=not%20a%20valid%20url")!
+        let uri = URL(string: "mdoc-openid4vp://?client_id=verifier&request_uri=not%20a%20valid%20url")!
 
         #expect(throws: ValidationError.invalidRequestURI) {
             try sut.parse(uri: uri)
@@ -160,6 +133,8 @@ struct URIParserTests {
     }
 
     // MARK: - Nonce Validation Helper
+
+    // isASCIIURLSafe is retained for RequestValidator's request-object nonce/state checks.
 
     @Test("isASCIIURLSafe accepts alphanumeric with -._~")
     func acceptsValidNonceChars() {

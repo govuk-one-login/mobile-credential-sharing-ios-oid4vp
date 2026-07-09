@@ -57,7 +57,7 @@ struct CredentialPresenterTests {
             credentialProvider: provider,
             completion: {}
         )
-        let deeplink = URL(string: "openid4vp://?client_id=verifier&request_uri=https%3A%2F%2Fexample.com%2Freq")!
+        let deeplink = URL(string: "mdoc-openid4vp://?client_id=verifier&request_uri=https%3A%2F%2Fexample.com%2Freq")!
 
         let viewController = presenter.viewControllerForRemoteSharingJourney(deeplink: deeplink)
 
@@ -72,7 +72,7 @@ struct CredentialPresenterTests {
             credentialProvider: provider,
             completion: {}
         )
-        let deeplink = URL(string: "openid4vp://?client_id=verifier&request_uri=https%3A%2F%2Fexample.com%2Freq")!
+        let deeplink = URL(string: "mdoc-openid4vp://?client_id=verifier&request_uri=https%3A%2F%2Fexample.com%2Freq")!
 
         let viewController = presenter.viewControllerForRemoteSharingJourney(deeplink: deeplink)
         let navController = viewController as? HolderContainerNavigation

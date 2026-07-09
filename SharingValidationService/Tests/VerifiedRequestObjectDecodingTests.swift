@@ -4,7 +4,7 @@ import Testing
 
 @Suite("VerifiedRequestObject JWT decoding Tests")
 struct VerifiedRequestObjectDecodingTests {
-    private let header = Data(#"{"typ":"oauth-authz-req+jwt","alg":"ES256"}"#.utf8)
+    private let header = Data(#"{"typ":"JWT","alg":"ES256"}"#.utf8)
 
     private func fullPayload() -> Data {
         let json = """
@@ -47,7 +47,7 @@ struct VerifiedRequestObjectDecodingTests {
             leafCertificateSANs: ["verifier.example.com"]
         )
 
-        #expect(sut.headerTyp == "oauth-authz-req+jwt")
+        #expect(sut.headerTyp == "JWT")
         #expect(sut.aud == "https://self-issued.me/v2")
         #expect(sut.clientID == "x509_san_dns:verifier.example.com")
         #expect(sut.responseType == "vp_token")
@@ -93,8 +93,6 @@ struct VerifiedRequestObjectDecodingTests {
         let uriMetadata = URIMetadata(
             clientID: "x509_san_dns:verifier.example.com",
             clientIdentifierPrefix: .x509SanDns(identifier: "verifier.example.com"),
-            responseType: "vp_token",
-            nonce: "uri_nonce",
             requestURI: URL(string: "https://verifier.example.com/request")!
         )
 
