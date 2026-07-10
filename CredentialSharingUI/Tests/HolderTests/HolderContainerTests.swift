@@ -315,6 +315,26 @@ struct HolderContainerTests {
         print(baseMockNavigationController.viewControllers)
         #expect(baseMockNavigationController.dismissCalled)
     }
+
+    @Test("orchestrator didUpdateState .success dismisses navigationController")
+    func renderSuccessDismissesNavigation() async throws {
+        // Given
+        let sut = HolderContainer(orchestrator: mockOrchestrator)
+        let baseMockNavigationController = MockNavigationController(
+            rootViewController: sut
+        )
+        _ = sut.view
+        _ = baseMockNavigationController.view
+
+        // When
+        sut.orchestrator(didUpdateState: .success)
+
+        // Then
+        let navigationController = try #require(sut.navigationController)
+        #expect(navigationController === baseMockNavigationController)
+        #expect(navigationController.viewControllers.count == 1)
+        #expect(baseMockNavigationController.dismissCalled)
+    }
 }
 
 class EmptyViewController: UIViewController {}

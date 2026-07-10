@@ -69,7 +69,7 @@ extension HolderContainer: @MainActor HolderOrchestratorDelegate {
         case .processingResponse:
             break
         case .success:
-            print("Response sent successfully")
+            navigationController?.dismiss(animated: true)
         case .cancelled:
             navigationController?.dismiss(animated: true)
         case .failed(let error):

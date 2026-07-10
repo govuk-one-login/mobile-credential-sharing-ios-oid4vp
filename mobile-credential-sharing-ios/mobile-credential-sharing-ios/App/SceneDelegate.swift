@@ -29,9 +29,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             credentialProvider: MockCredentialProvider(
                 activeCredential: MockCredential.allMocks.first
             ),
-            completion: { [weak window] in
-                window?.rootViewController?.dismiss(animated: true)
-            }
+            completion: {}
         )
         credentialPresenter = presenter
         let journey = presenter.viewControllerForRemoteSharingJourney(deeplink: url)
