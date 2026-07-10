@@ -8,11 +8,18 @@ import Testing
 @MainActor
 @Suite("RemoteHolderOrchestrator Tests")
 struct RemoteHolderOrchestratorTests {
+    // Valid on-curve P-256 coordinates, so the JWE encrypter can genuinely encrypt in the happy path.
+    private static let validEncryptionKeyX = "n-1U0E8Lzhw3-siUNeCoxZ_hnzk3zRaxr3h_CWhmU20"
+    private static let validEncryptionKeyY = "1BGNUjUn56xMzHHuNBdsnepTxyubagfVZ_csJVJ_YaQ"
+
     // A well-formed engagement URI whose client_id matches the request object's SAN + client_id.
     let deeplink = URL(string: "mdoc-openid4vp://?client_id=x509_san_dns%3Averifier.example.com"
         + "&request_uri=https%3A%2F%2Fverifier.example.com%2Freq")!
 
-    private func makeVerifiedJWT() -> VerifiedJWT {
+    private func makeVerifiedJWT(
+        encryptionKeyX: String = validEncryptionKeyX,
+        encryptionKeyY: String = validEncryptionKeyY
+    ) -> VerifiedJWT {
         let header = Data(#"{"typ":"JWT","alg":"ES256"}"#.utf8)
         let payload = Data("""
         {
@@ -30,8 +37,8 @@ struct RemoteHolderOrchestratorTests {
                             "crv": "P-256",
                             "use": "enc",
                             "alg": "ECDH-ES",
-                            "x": "KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio",
-                            "y": "e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3s",
+                            "x": "\(encryptionKeyX)",
+                            "y": "\(encryptionKeyY)",
                             "kid": "verifier-key-1"
                         }
                     ]
@@ -81,8 +88,8 @@ struct RemoteHolderOrchestratorTests {
     func happyPath() async throws {
         let handler = MockCredentialRequestHandler()
         let (sut, delegate) = makeSUT(
-            transport: StubRemoteTransport(jwt: "any.jwt.value"),
-            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT())),
+            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT())),
             handler: handler
         )
 
@@ -103,8 +110,8 @@ struct RemoteHolderOrchestratorTests {
     @Test("verifierIdentifier is nil before the request is validated")
     func verifierIdentifierNilBeforeValidation() {
         let (sut, _) = makeSUT(
-            transport: StubRemoteTransport(jwt: "any.jwt.value"),
-            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT()))
+            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT()))
         )
 
         #expect(sut.verifierIdentifier == nil)
@@ -115,8 +122,8 @@ struct RemoteHolderOrchestratorTests {
     @Test("Fetch error transitions to failed")
     func fetchErrorFails() async {
         let (sut, delegate) = makeSUT(
-            transport: StubRemoteTransport(error: URLError(.notConnectedToInternet)),
-            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT()))
+            transport: MockRemoteTransport(error: URLError(.notConnectedToInternet)),
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT()))
         )
 
         await sut.processRequest()
@@ -127,8 +134,8 @@ struct RemoteHolderOrchestratorTests {
     @Test("Signature verification failure transitions to failed")
     func verificationFailureFails() async {
         let (sut, delegate) = makeSUT(
-            transport: StubRemoteTransport(jwt: "any.jwt.value"),
-            verifier: StubSignatureVerifier(result: .failure(.invalidSignature))
+            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            verifier: MockSignatureVerifier(result: .failure(.invalidSignature))
         )
 
         await sut.processRequest()
@@ -142,8 +149,8 @@ struct RemoteHolderOrchestratorTests {
         let payload = Data(#"{"aud":"wrong","response_type":"vp_token"}"#.utf8)
         let badJWT = VerifiedJWT(headerData: header, payloadData: payload, leafCertificateSANs: [])
         let (sut, delegate) = makeSUT(
-            transport: StubRemoteTransport(jwt: "any.jwt.value"),
-            verifier: StubSignatureVerifier(result: .success(badJWT))
+            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            verifier: MockSignatureVerifier(result: .success(badJWT))
         )
 
         await sut.processRequest()
@@ -156,8 +163,8 @@ struct RemoteHolderOrchestratorTests {
         let handler = MockCredentialRequestHandler()
         handler.errorToThrow = CredentialRequestError.noCredentialsReturned
         let (sut, delegate) = makeSUT(
-            transport: StubRemoteTransport(jwt: "any.jwt.value"),
-            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT())),
+            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT())),
             handler: handler
         )
 
@@ -171,8 +178,8 @@ struct RemoteHolderOrchestratorTests {
         let handler = MockCredentialRequestHandler()
         handler.filterErrorToThrow = IssuerSignedFilterError.noMatchingAttributes
         let (sut, delegate) = makeSUT(
-            transport: StubRemoteTransport(jwt: "any.jwt.value"),
-            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT())),
+            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT())),
             handler: handler
         )
 
@@ -185,9 +192,9 @@ struct RemoteHolderOrchestratorTests {
     func malformedDeeplinkFails() async {
         let sut = RemoteHolderOrchestrator(
             deeplink: URL(string: "https://not-openid4vp.example.com")!,
-            remoteTransport: StubRemoteTransport(jwt: "any.jwt.value"),
+            remoteTransport: MockRemoteTransport(jwt: "any.jwt.value"),
             credentialRequestHandler: MockCredentialRequestHandler(),
-            signatureVerifier: StubSignatureVerifier(result: .success(makeVerifiedJWT()))
+            signatureVerifier: MockSignatureVerifier(result: .success(makeVerifiedJWT()))
         )
         let delegate = RecordingDelegate()
         sut.delegate = delegate
@@ -199,12 +206,13 @@ struct RemoteHolderOrchestratorTests {
 
     // MARK: - User Decision
 
-    @Test("Approval builds transcript + signed DeviceAuth, then stubs to failed until Steps 13–16 exist")
-    func approveBuildsDeviceAuthThenStubsToFailed() async throws {
+    @Test("Approval assembles, encrypts, and submits the response, reaching success")
+    func approveSubmitsResponseAndSucceeds() async throws {
         let handler = MockCredentialRequestHandler()
+        let transport = MockRemoteTransport(jwt: "any.jwt.value")
         let (sut, delegate) = makeSUT(
-            transport: StubRemoteTransport(jwt: "any.jwt.value"),
-            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT())),
+            transport: transport,
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT())),
             handler: handler
         )
         await sut.processRequest()
@@ -213,22 +221,58 @@ struct RemoteHolderOrchestratorTests {
         try sut.session?.transition(to: .processingResponse)
         await sut.prepareResponse()
 
-        // Step 11: transcript + mdocGeneratedNonce present.
+        // Steps 11–12 ran: transcript, nonce, and the signed DeviceAuth are on the session.
         #expect(sut.session?.sessionTranscript != nil)
         #expect(sut.session?.mdocGeneratedNonce?.count == 32)
-        // Step 12: DeviceAuth built, signed, and assembled into deviceSigned.
-        #expect(sut.session?.deviceAuthenticationBytes != nil)
-        #expect(handler.didCallSignDeviceAuthenticationBytes == true)
         #expect(sut.session?.deviceSigned != nil)
-        // ...but the path still cannot complete (Steps 13–16 pending).
+        #expect(handler.didCallSignDeviceAuthenticationBytes == true)
+
+        // Steps 13–16: a compact JWE was PUT to the request's response URI, and the flow succeeded.
+        let submitted = try #require(transport.submitted)
+        #expect(submitted.url.absoluteString == "https://verifier.example.com/response")
+        #expect(submitted.jwe.components(separatedBy: ".").count == 5)
+        #expect(delegate.states.last?.kind == .success)
+    }
+
+    @Test("Submit failure transitions to failed")
+    func submitFailureFails() async throws {
+        let transport = MockRemoteTransport(jwt: "any.jwt.value", submitError: URLError(.timedOut))
+        let (sut, delegate) = makeSUT(
+            transport: transport,
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT()))
+        )
+        await sut.processRequest()
+
+        try sut.session?.transition(to: .processingResponse)
+        await sut.prepareResponse()
+
+        #expect(delegate.states.last?.kind == .failed)
+    }
+
+    @Test("Off-curve verifier key transitions to failed at encryption")
+    func invalidVerifierKeyFails() async throws {
+        // Coordinates that decode to 32 bytes (so validation passes) but are not a P-256 point.
+        let offCurveJWT = makeVerifiedJWT(
+            encryptionKeyX: "KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio",
+            encryptionKeyY: "e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3s"
+        )
+        let (sut, delegate) = makeSUT(
+            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            verifier: MockSignatureVerifier(result: .success(offCurveJWT))
+        )
+        await sut.processRequest()
+
+        try sut.session?.transition(to: .processingResponse)
+        await sut.prepareResponse()
+
         #expect(delegate.states.last?.kind == .failed)
     }
 
     @Test("userDidDeny transitions to cancelled and clears the session")
     func denyCancels() async {
         let (sut, delegate) = makeSUT(
-            transport: StubRemoteTransport(jwt: "any.jwt.value"),
-            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT()))
+            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT()))
         )
         await sut.processRequest()
 
@@ -239,45 +283,12 @@ struct RemoteHolderOrchestratorTests {
     }
 }
 
-// MARK: - Test doubles
-
 private final class RecordingDelegate: HolderOrchestratorDelegate {
     var states: [HolderSessionState] = []
     
     func orchestrator(didUpdateState state: HolderSessionState?) {
         if let state {
             states.append(state)
-        }
-    }
-}
-
-private struct StubRemoteTransport: RemoteTransportProtocol {
-    var jwt: String?
-    var error: (any Error & Sendable)?
-
-    init(jwt: String) {
-        self.jwt = jwt
-    }
-    
-    init(error: any Error & Sendable) {
-        self.error = error
-    }
-
-    func fetchRequestObject(from requestURI: URL) async throws -> String {
-        if let error { throw error }
-        return jwt ?? ""
-    }
-
-    func submitResponse(encryptedResponse jwe: String, to uploadURL: URL) async throws {}
-}
-
-private struct StubSignatureVerifier: SignatureVerifying {
-    let result: Result<VerifiedJWT, JWTVerificationError>
-
-    func verify(jwt: String) throws(JWTVerificationError) -> VerifiedJWT {
-        switch result {
-        case let .success(verified): return verified
-        case let .failure(error): throw error
         }
     }
 }

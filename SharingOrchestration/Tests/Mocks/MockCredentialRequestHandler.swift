@@ -6,6 +6,7 @@ class MockCredentialRequestHandler: CredentialRequestHandlerProtocol {
     var errorToThrow: Error?
     var filterErrorToThrow: Error?
     var stubbedSignatureBytes: Data = Data([0x01, 0x02])
+    var stubbedIssuerSigned = IssuerSigned(nameSpaces: [:], issuerAuth: [])
     var didCallSignDeviceAuthenticationBytes = false
     var didCallFilterIssuerSigned = false
     
@@ -28,5 +29,6 @@ class MockCredentialRequestHandler: CredentialRequestHandlerProtocol {
         if let filterErrorToThrow {
             throw filterErrorToThrow
         }
+        try session.setIssuerSigned(stubbedIssuerSigned)
     }
 }
