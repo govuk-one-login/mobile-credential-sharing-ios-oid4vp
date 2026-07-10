@@ -199,21 +199,28 @@ struct RemoteHolderOrchestratorTests {
 
     // MARK: - User Decision
 
-    @Test("userDidApprove builds the session transcript then stubs to failed until response building exists")
-    func approveBuildsTranscriptThenStubsToFailed() async {
+    @Test("Approval builds transcript + signed DeviceAuth, then stubs to failed until Steps 13–16 exist")
+    func approveBuildsDeviceAuthThenStubsToFailed() async throws {
+        let handler = MockCredentialRequestHandler()
         let (sut, delegate) = makeSUT(
             transport: StubRemoteTransport(jwt: "any.jwt.value"),
-            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT()))
+            verifier: StubSignatureVerifier(result: .success(makeVerifiedJWT())),
+            handler: handler
         )
         await sut.processRequest()
 
-        sut.userDidApprove()
+        // Drive the async response building directly (mirrors ISO's prepareDeviceSignedResponse test approach).
+        try sut.session?.transition(to: .processingResponse)
+        await sut.prepareResponse()
 
-        // Step 11 ran: the transcript and mdocGeneratedNonce are on the session...
+        // Step 11: transcript + mdocGeneratedNonce present.
         #expect(sut.session?.sessionTranscript != nil)
-        #expect(sut.session?.sessionTranscriptBytes?.isEmpty == false)
         #expect(sut.session?.mdocGeneratedNonce?.count == 32)
-        // ...but the path still cannot complete (Steps 12–16 pending).
+        // Step 12: DeviceAuth built, signed, and assembled into deviceSigned.
+        #expect(sut.session?.deviceAuthenticationBytes != nil)
+        #expect(handler.didCallSignDeviceAuthenticationBytes == true)
+        #expect(sut.session?.deviceSigned != nil)
+        // ...but the path still cannot complete (Steps 13–16 pending).
         #expect(delegate.states.last?.kind == .failed)
     }
 

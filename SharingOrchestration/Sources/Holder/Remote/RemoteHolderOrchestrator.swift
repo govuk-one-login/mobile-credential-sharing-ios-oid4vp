@@ -10,8 +10,8 @@ import SharingValidationService
 /// fetch and verify the signed Authorization Request Object, validate it, map the DCQL query to an
 /// ISO `DeviceRequest`, then await user consent.
 ///
-/// Response building/encryption/submission (Steps 9–16) is not yet implemented; `userDidApprove()`
-/// is a deliberate stub.
+/// On approval it builds the SessionTranscript (Step 11) and the signed DeviceAuth (Step 12). Response
+/// assembly/encryption/submission (Steps 13–16) is not yet implemented, so the flow still ends in `.failed`.
 @MainActor
 public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
     private(set) var session: RemoteHolderSessionProtocol?
@@ -30,6 +30,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
     private let dcqlMapper: DCQLMapper
     private let credentialRequestHandler: CredentialRequestHandlerProtocol
     private let sessionTranscriptBuilder: OID4VPSessionTranscriptBuilder
+    private let cryptoService: CryptoServiceProtocol
 
     public init(
         deeplink: URL,
@@ -39,7 +40,8 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         signatureVerifier: SignatureVerifying = JWTSignatureVerifier(),
         requestValidator: RequestValidator = RequestValidator(),
         dcqlMapper: DCQLMapper = DCQLMapper(),
-        sessionTranscriptBuilder: OID4VPSessionTranscriptBuilder = OID4VPSessionTranscriptBuilder()
+        sessionTranscriptBuilder: OID4VPSessionTranscriptBuilder = OID4VPSessionTranscriptBuilder(),
+        cryptoService: CryptoServiceProtocol = CryptoService(sessionDecryption: SessionDecryption())
     ) {
         self.deeplink = deeplink
         self.remoteTransport = remoteTransport
@@ -49,6 +51,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         self.requestValidator = requestValidator
         self.dcqlMapper = dcqlMapper
         self.sessionTranscriptBuilder = sessionTranscriptBuilder
+        self.cryptoService = cryptoService
     }
 
     public func start() {
@@ -112,14 +115,31 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
 
     public func userDidApprove() {
         guard let session = getSession() else { return }
-        // TODO: DCMAW-21231 — Step 11 (SessionTranscript) is built below. Steps 12–16 remain: sign
-        // DeviceAuth, assemble the DeviceResponse, JWE-encrypt and PUT to response_uri. Until they
-        // land, approving cannot complete the flow.
         do {
             try session.transition(to: .processingResponse)
             delegate?.orchestrator(didUpdateState: session.currentState)
+            Task {
+                await prepareResponse()
+            }
+        } catch {
+            handleFailure(error)
+        }
+    }
 
+    /// Builds the device-signed response after user approval. Steps 11–12 are wired: build the
+    /// SessionTranscript, then construct + sign + assemble the DeviceAuth. Steps 13–16 (DeviceResponse
+    /// assembly, CBOR, JWE-of-response, PUT to response_uri) remain, so the flow still cannot complete.
+    /// TODO: DCMAW-21231 — implement Steps 13–16.
+    func prepareResponse() async {
+        guard let session = getSession() else { return }
+        do {
             try buildSessionTranscript(in: session)
+
+            // Step 12: build the DeviceAuthentication bytes, sign them via the consumer's device key,
+            // and assemble the COSE_Sign1 DeviceSigned.
+            try cryptoService.constructDeviceAuthenticationBytes(in: session)
+            try await credentialRequestHandler.signDeviceAuthenticationBytes(in: session)
+            try cryptoService.generateDeviceSigned(in: session)
 
             try session.transition(to: .failed(.generic("Response building not yet implemented")))
             delegate?.orchestrator(didUpdateState: session.currentState)
