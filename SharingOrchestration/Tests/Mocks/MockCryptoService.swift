@@ -68,17 +68,17 @@ class MockCryptoService: CryptoServiceProtocol {
         return stubbedEncryptedResponse
     }
     
-    func constructDeviceAuthenticationBytes(in session: any CryptoHolderSessionProtocol) throws {
+    func constructDeviceAuthenticationBytes(in session: any ResponseConstructionSessionProtocol) throws {
         didCallConstructDeviceAuthenticationBytes = true
-        
+
         if constructDeviceAuthenticationBytesShouldThrow {
             throw CryptoServiceError.deviceAuthenticationElementsNotFound
         }
-        
+
         try session.setDeviceAuthenticationBytes(stubbedDeviceAuthenticationBytes)
     }
-    
-    func generateDeviceSigned(in session: any CryptoHolderSessionProtocol) throws {
+
+    func generateDeviceSigned(in session: any ResponseConstructionSessionProtocol) throws {
         didCallGenerateDeviceSigned = true
         
         guard let signatureBytes = session.signatureBytes else {

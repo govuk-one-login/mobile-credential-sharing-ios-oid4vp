@@ -33,23 +33,31 @@ public enum CryptoServiceError: LocalizedError, Equatable {
 }
 
 // MARK: - Protocols
-public protocol CryptoHolderSessionProtocol: AnyObject {
-    var cryptoContext: CryptoContext? { get }
-    var qrCode: UIImage? { get }
-    var skReaderMessageCounter: Int { get set }
-    var skDeviceMessageCounter: Int { get set }
+
+/// Session state needed to build and sign the DeviceAuth response, independent of transport.
+/// Both the ISO/proximity and the Remote (OID4VP) holder sessions conform to this; only the response
+/// construction steps depend on it, so it excludes proximity/BLE engagement concerns.
+public protocol ResponseConstructionSessionProtocol: AnyObject {
     var sessionTranscript: SessionTranscript? { get }
     var docType: DocType? { get }
     var deviceAuthenticationBytes: Data? { get }
     var signatureBytes: Data? { get }
     var deviceSigned: DeviceSigned? { get }
-    
-    func setEngagement(cryptoContext: CryptoContext, qrCode: UIImage) throws
-    func setSKDeviceKey(_ key: [UInt8]) throws
-    func setSessionTranscriptAndDocType(sessionTranscript: SessionTranscript, docType: DocType) throws
+
     func setDeviceAuthenticationBytes(_ bytes: Data) throws
     func setSignatureBytes(_ bytes: Data) throws
     func setDeviceSigned(deviceSigned: DeviceSigned) throws
+}
+
+public protocol CryptoHolderSessionProtocol: ResponseConstructionSessionProtocol {
+    var cryptoContext: CryptoContext? { get }
+    var qrCode: UIImage? { get }
+    var skReaderMessageCounter: Int { get set }
+    var skDeviceMessageCounter: Int { get set }
+
+    func setEngagement(cryptoContext: CryptoContext, qrCode: UIImage) throws
+    func setSKDeviceKey(_ key: [UInt8]) throws
+    func setSessionTranscriptAndDocType(sessionTranscript: SessionTranscript, docType: DocType) throws
 }
 
 public protocol CryptoVerifierSessionProtocol: AnyObject {
@@ -64,8 +72,8 @@ public protocol CryptoServiceProtocol {
     func prepareEngagement(in session: CryptoHolderSessionProtocol) throws
     func processSessionEstablishment(incoming bytes: Data, in session: CryptoHolderSessionProtocol) throws -> DeviceRequest
     func encryptDeviceResponse(_ deviceResponse: DeviceResponse, in session: CryptoHolderSessionProtocol) throws -> Data
-    func constructDeviceAuthenticationBytes(in session: CryptoHolderSessionProtocol) throws
-    func generateDeviceSigned(in session: CryptoHolderSessionProtocol) throws
+    func constructDeviceAuthenticationBytes(in session: ResponseConstructionSessionProtocol) throws
+    func generateDeviceSigned(in session: ResponseConstructionSessionProtocol) throws
     
     // MARK: - Verifier functions
     func processQRCode(_ qrCode: String, in session: CryptoVerifierSessionProtocol) throws
@@ -213,7 +221,7 @@ extension CryptoService: CryptoServiceProtocol {
     }
     
     public func generateDeviceSigned(
-        in session: CryptoHolderSessionProtocol
+        in session: ResponseConstructionSessionProtocol
     ) throws {
         guard let signatureBytes = session.signatureBytes else {
             throw CryptoServiceError.deviceAuthenticationElementsNotFound
@@ -246,7 +254,7 @@ extension CryptoService: CryptoServiceProtocol {
     }
     
     public func constructDeviceAuthenticationBytes(
-        in session: CryptoHolderSessionProtocol
+        in session: ResponseConstructionSessionProtocol
     ) throws {
         // The SessionTranscript element is defined in 12.6.1.
         // The DocType contains the same data as the Document element in the mdoc response (10.3.3).

@@ -1,12 +1,13 @@
+import Foundation
 import SharingCryptoService
 import SharingValidationService
 
 // MARK: - RemoteHolderSession protocol
-public protocol RemoteHolderSessionProtocol: CredentialSessionProtocol, Sendable {
+public protocol RemoteHolderSessionProtocol:
+    CredentialSessionProtocol, ResponseConstructionSessionProtocol, Sendable {
     var currentState: HolderSessionState { get }
     var validatedRequest: ValidatedRequest? { get }
     var deviceRequest: DeviceRequest? { get }
-    var sessionTranscript: SessionTranscript? { get }
     var sessionTranscriptBytes: [UInt8]? { get }
     var mdocGeneratedNonce: [UInt8]? { get }
 
@@ -35,6 +36,17 @@ public final class RemoteHolderSession: RemoteHolderSessionProtocol, @unchecked 
     public private(set) var sessionTranscript: SessionTranscript?
     public private(set) var sessionTranscriptBytes: [UInt8]?
     public private(set) var mdocGeneratedNonce: [UInt8]?
+
+    // ResponseConstructionSessionProtocol (Step 12 — DeviceAuth)
+    public private(set) var deviceAuthenticationBytes: Data?
+    public private(set) var signatureBytes: Data?
+    public private(set) var deviceSigned: DeviceSigned?
+
+    /// The requested document type, taken from the mapped device request. The Remote flow validates a
+    /// single-document request, so the first doc request's docType is authoritative.
+    public var docType: DocType? {
+        deviceRequest?.docRequests.first?.itemsRequest.docType
+    }
 
     init(_ initialState: HolderSessionState = .notStarted) {
         self.currentState = initialState
@@ -81,5 +93,26 @@ public final class RemoteHolderSession: RemoteHolderSessionProtocol, @unchecked 
         self.sessionTranscript = transcript
         self.sessionTranscriptBytes = bytes
         self.mdocGeneratedNonce = mdocGeneratedNonce
+    }
+
+    public func setDeviceAuthenticationBytes(_ bytes: Data) throws {
+        guard currentState.kind == .processingResponse else {
+            throw SessionError.incorrectSessionState(currentState.kind.rawValue)
+        }
+        self.deviceAuthenticationBytes = bytes
+    }
+
+    public func setSignatureBytes(_ bytes: Data) throws {
+        guard currentState.kind == .processingResponse else {
+            throw SessionError.incorrectSessionState(currentState.kind.rawValue)
+        }
+        self.signatureBytes = bytes
+    }
+
+    public func setDeviceSigned(deviceSigned: DeviceSigned) throws {
+        guard currentState.kind == .processingResponse else {
+            throw SessionError.incorrectSessionState(currentState.kind.rawValue)
+        }
+        self.deviceSigned = deviceSigned
     }
 }

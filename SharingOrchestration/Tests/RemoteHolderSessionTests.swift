@@ -2,6 +2,7 @@ import Foundation
 import SharingCryptoService
 @testable import SharingOrchestration
 import SharingValidationService
+import SwiftCBOR
 import Testing
 
 @Suite("RemoteHolderSession Tests")
@@ -153,5 +154,70 @@ struct RemoteHolderSessionTests {
         }
         #expect(sut.sessionTranscript == nil)
         #expect(sut.mdocGeneratedNonce == nil)
+    }
+
+    // MARK: - ResponseConstructionSessionProtocol (DeviceAuth)
+
+    /// Advances a fresh session through the legal path to `.processingResponse`, storing the deviceRequest.
+    private func makeProcessingResponseSession() throws -> RemoteHolderSession {
+        let sut = RemoteHolderSession()
+        try sut.transition(to: .remoteFetchingRequest)
+        try sut.transition(to: .remoteValidatingRequest)
+        try sut.setValidatedRequest(makeValidatedRequest(), deviceRequest: makeDeviceRequest())
+        try sut.transition(to: .awaitingUserConsent(makeDeviceRequest()))
+        try sut.transition(to: .processingResponse)
+        return sut
+    }
+
+    @Test("docType is derived from the stored device request")
+    func docTypeDerivedFromDeviceRequest() throws {
+        let sut = try makeProcessingResponseSession()
+
+        #expect(sut.docType == .mdl)
+    }
+
+    @Test("DeviceAuth setters store values in processingResponse state")
+    func deviceAuthSettersSucceed() throws {
+        let sut = try makeProcessingResponseSession()
+
+        try sut.setDeviceAuthenticationBytes(Data([0x01]))
+        try sut.setSignatureBytes(Data([0x02]))
+        let deviceSigned = DeviceSigned(nameSpaces: [], deviceAuth: DeviceAuth(deviceSignature: .null))
+        try sut.setDeviceSigned(deviceSigned: deviceSigned)
+
+        #expect(sut.deviceAuthenticationBytes == Data([0x01]))
+        #expect(sut.signatureBytes == Data([0x02]))
+        #expect(sut.deviceSigned == deviceSigned)
+    }
+
+    @Test("setDeviceAuthenticationBytes throws when called from the wrong state")
+    func setDeviceAuthenticationBytesThrowsFromWrongState() {
+        let sut = RemoteHolderSession()
+
+        #expect(throws: SessionError.incorrectSessionState(HolderSessionStateKind.notStarted.rawValue)) {
+            try sut.setDeviceAuthenticationBytes(Data([0x01]))
+        }
+        #expect(sut.deviceAuthenticationBytes == nil)
+    }
+
+    @Test("setSignatureBytes throws when called from the wrong state")
+    func setSignatureBytesThrowsFromWrongState() {
+        let sut = RemoteHolderSession()
+
+        #expect(throws: SessionError.incorrectSessionState(HolderSessionStateKind.notStarted.rawValue)) {
+            try sut.setSignatureBytes(Data([0x02]))
+        }
+        #expect(sut.signatureBytes == nil)
+    }
+
+    @Test("setDeviceSigned throws when called from the wrong state")
+    func setDeviceSignedThrowsFromWrongState() {
+        let sut = RemoteHolderSession()
+        let deviceSigned = DeviceSigned(nameSpaces: [], deviceAuth: DeviceAuth(deviceSignature: .null))
+
+        #expect(throws: SessionError.incorrectSessionState(HolderSessionStateKind.notStarted.rawValue)) {
+            try sut.setDeviceSigned(deviceSigned: deviceSigned)
+        }
+        #expect(sut.deviceSigned == nil)
     }
 }
