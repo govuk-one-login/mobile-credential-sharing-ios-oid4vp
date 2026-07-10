@@ -3,15 +3,15 @@ import SharingCryptoService
 import SharingNetworkTransport
 import SharingPrerequisiteGate
 import SharingValidationService
+import SwiftCBOR
 
-/// Orchestrates the OID4VP (Remote) presentation flow initiated by an `openid4vp://` deeplink.
+/// Orchestrates the OID4VP (Remote) presentation flow initiated by an `mdoc-openid4vp://` deeplink.
 ///
 /// Mirrors `ISOHolderOrchestrator` but drives the request-side pipeline: parse the engagement URI,
 /// fetch and verify the signed Authorization Request Object, validate it, map the DCQL query to an
-/// ISO `DeviceRequest`, then await user consent.
-///
-/// On approval it builds the SessionTranscript (Step 11) and the signed DeviceAuth (Step 12). Response
-/// assembly/encryption/submission (Steps 13–16) is not yet implemented, so the flow still ends in `.failed`.
+/// ISO `DeviceRequest`, then await user consent. On approval it builds the SessionTranscript (Step 11),
+/// signs the DeviceAuth (Step 12), assembles the `DeviceResponse` (Steps 13–14), JWE-encrypts it
+/// (Step 15) and PUTs it to the verifier's `response_uri` (Step 16).
 @MainActor
 public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
     private(set) var session: RemoteHolderSessionProtocol?
@@ -31,6 +31,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
     private let credentialRequestHandler: CredentialRequestHandlerProtocol
     private let sessionTranscriptBuilder: OID4VPSessionTranscriptBuilder
     private let cryptoService: CryptoServiceProtocol
+    private let jweEncrypter: JWEEncrypting
 
     public init(
         deeplink: URL,
@@ -41,7 +42,8 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         requestValidator: RequestValidator = RequestValidator(),
         dcqlMapper: DCQLMapper = DCQLMapper(),
         sessionTranscriptBuilder: OID4VPSessionTranscriptBuilder = OID4VPSessionTranscriptBuilder(),
-        cryptoService: CryptoServiceProtocol = CryptoService(sessionDecryption: SessionDecryption())
+        cryptoService: CryptoServiceProtocol = CryptoService(sessionDecryption: SessionDecryption()),
+        jweEncrypter: JWEEncrypting = ECDHESJWEEncrypter()
     ) {
         self.deeplink = deeplink
         self.remoteTransport = remoteTransport
@@ -52,6 +54,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         self.dcqlMapper = dcqlMapper
         self.sessionTranscriptBuilder = sessionTranscriptBuilder
         self.cryptoService = cryptoService
+        self.jweEncrypter = jweEncrypter
     }
 
     public func start() {
@@ -126,10 +129,8 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         }
     }
 
-    /// Builds the device-signed response after user approval. Steps 11–12 are wired: build the
-    /// SessionTranscript, then construct + sign + assemble the DeviceAuth. Steps 13–16 (DeviceResponse
-    /// assembly, CBOR, JWE-of-response, PUT to response_uri) remain, so the flow still cannot complete.
-    /// TODO: DCMAW-21231 — implement Steps 13–16.
+    /// Builds and submits the device-signed response after user approval: SessionTranscript (Step 11),
+    /// DeviceAuth signature (Step 12), then assemble → encode → JWE-encrypt → PUT (Steps 13–16).
     func prepareResponse() async {
         guard let session = getSession() else { return }
         do {
@@ -141,11 +142,51 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
             try await credentialRequestHandler.signDeviceAuthenticationBytes(in: session)
             try cryptoService.generateDeviceSigned(in: session)
 
-            try session.transition(to: .failed(.generic("Response building not yet implemented")))
+            try await assembleAndSubmitResponse(in: session)
+
+            try session.transition(to: .success)
             delegate?.orchestrator(didUpdateState: session.currentState)
         } catch {
             handleFailure(error)
         }
+    }
+
+    /// Steps 13–16: assemble the `DeviceResponse` from the disclosed credential and device signature,
+    /// CBOR-encode it, JWE-encrypt it for the verifier, and PUT it to the `response_uri`.
+    private func assembleAndSubmitResponse(in session: RemoteHolderSessionProtocol) async throws {
+        guard let request = session.validatedRequest else {
+            throw SessionError.generic("Validated request missing while assembling the response")
+        }
+        guard let docType = session.docType,
+              let issuerSigned = session.issuerSigned,
+              let deviceSigned = session.deviceSigned else {
+            throw SessionError.generic("Response elements missing while assembling the response")
+        }
+
+        // Steps 13–14: build the single-document DeviceResponse and CBOR-encode it.
+        let document = Document(docType: docType, issuerSigned: issuerSigned, deviceSigned: deviceSigned)
+        let deviceResponse = DeviceResponse(documents: [document], status: .ok)
+        let plaintext = Data(deviceResponse.encode(options: CBOROptions()))
+
+        // Step 15: JWE-encrypt for the verifier. apu = mdocGeneratedNonce, apv = the verifier's nonce.
+        let jwe = try jweEncrypter.encrypt(
+            plaintext: plaintext,
+            verifierKey: verifierKey(from: request.verifierEncryptionKey),
+            agreementPartyUInfo: Data(session.mdocGeneratedNonce ?? []),
+            agreementPartyVInfo: Data(request.nonce.utf8)
+        )
+
+        // Step 16: PUT the compact JWE to the presigned response URL.
+        try await remoteTransport.submitResponse(encryptedResponse: jwe, to: request.responseURI)
+    }
+
+    /// Bridges the validation module's decoded key to the crypto module's key type (field-identical).
+    private func verifierKey(from key: VerifierEncryptionKey) -> VerifierPublicKeyMaterial {
+        VerifierPublicKeyMaterial(
+            xCoordinate: key.xCoordinate,
+            yCoordinate: key.yCoordinate,
+            keyID: key.keyID
+        )
     }
 
     /// Step 11: binds the response to this request by building the OID4VP `SessionTranscript` and the
