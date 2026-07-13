@@ -69,13 +69,15 @@ struct RemoteHolderOrchestratorTests {
     private func makeSUT(
         transport: RemoteTransportProtocol,
         verifier: SignatureVerifying,
-        handler: MockCredentialRequestHandler = MockCredentialRequestHandler()
+        handler: MockCredentialRequestHandler = MockCredentialRequestHandler(),
+        jweEncrypter: JWEEncrypting = MockJWEEncrypter()
     ) -> (RemoteHolderOrchestrator, RecordingDelegate) {
         let sut = RemoteHolderOrchestrator(
             deeplink: deeplink,
             remoteTransport: transport,
             credentialRequestHandler: handler,
-            signatureVerifier: verifier
+            signatureVerifier: verifier,
+            jweEncrypter: jweEncrypter
         )
         let delegate = RecordingDelegate()
         sut.delegate = delegate
@@ -210,10 +212,12 @@ struct RemoteHolderOrchestratorTests {
     func approveSubmitsResponseAndSucceeds() async throws {
         let handler = MockCredentialRequestHandler()
         let transport = MockRemoteTransport(jwt: "any.jwt.value")
+        let encrypter = MockJWEEncrypter()
         let (sut, delegate) = makeSUT(
             transport: transport,
             verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT())),
-            handler: handler
+            handler: handler,
+            jweEncrypter: encrypter
         )
         await sut.processRequest()
 
@@ -227,10 +231,18 @@ struct RemoteHolderOrchestratorTests {
         #expect(sut.session?.deviceSigned != nil)
         #expect(handler.didCallSignDeviceAuthenticationBytes == true)
 
-        // A compact JWE was PUT to the request's response URI, and the flow succeeded.
+        // The JWE plaintext is the OID4VP response object: base64url CBOR DeviceResponse under vp_token/mDL.
+        let plaintext = try #require(encrypter.capturedPlaintext)
+        let json = try #require(try JSONSerialization.jsonObject(with: plaintext) as? [String: Any])
+        let vpToken = try #require(json["vp_token"] as? [String: Any])
+        let mdl = try #require(vpToken["mDL"] as? String)
+        #expect(Data(base64URLEncoded: mdl) != nil)
+        #expect(json.count == 1)
+
+        // The produced JWE was PUT to the request's response URI, and the flow succeeded.
         let submitted = try #require(transport.submitted)
         #expect(submitted.url.absoluteString == "https://verifier.example.com/response")
-        #expect(submitted.jwe.components(separatedBy: ".").count == 5)
+        #expect(submitted.jwe == encrypter.stubbedJWE)
         #expect(delegate.states.last?.kind == .success)
     }
 
@@ -256,9 +268,11 @@ struct RemoteHolderOrchestratorTests {
             encryptionKeyX: "KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio",
             encryptionKeyY: "e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3s"
         )
+        // Use the real encrypter (not the mock default) so the off-curve key is actually rejected.
         let (sut, delegate) = makeSUT(
             transport: MockRemoteTransport(jwt: "any.jwt.value"),
-            verifier: MockSignatureVerifier(result: .success(offCurveJWT))
+            verifier: MockSignatureVerifier(result: .success(offCurveJWT)),
+            jweEncrypter: ECDHESJWEEncrypter()
         )
         await sut.processRequest()
 
@@ -285,7 +299,7 @@ struct RemoteHolderOrchestratorTests {
 
 private final class RecordingDelegate: HolderOrchestratorDelegate {
     var states: [HolderSessionState] = []
-    
+
     func orchestrator(didUpdateState state: HolderSessionState?) {
         if let state {
             states.append(state)
