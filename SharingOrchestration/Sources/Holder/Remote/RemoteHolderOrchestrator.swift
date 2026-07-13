@@ -157,8 +157,8 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         }
     }
 
-    /// Assembles the `DeviceResponse` from the disclosed credential and device signature, CBOR-encodes it,
-    /// JWE-encrypts it for the verifier, and PUTs it to the `response_uri`.
+    /// Assembles the `DeviceResponse` from the disclosed credential and device signature, wraps it in the
+    /// OID4VP `vp_token` response object, JWE-encrypts it for the verifier, and PUTs it to the `response_uri`.
     private func assembleAndSubmitResponse(in session: RemoteHolderSessionProtocol) async throws {
         guard let request = session.validatedRequest else {
             throw SessionError.generic("Validated request missing while assembling the response")
@@ -172,7 +172,10 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         // Build the single-document DeviceResponse and CBOR-encode it.
         let document = Document(docType: docType, issuerSigned: issuerSigned, deviceSigned: deviceSigned)
         let deviceResponse = DeviceResponse(documents: [document], status: .ok)
-        let plaintext = Data(deviceResponse.encode(options: CBOROptions()))
+        let deviceResponseBytes = Data(deviceResponse.encode(options: CBOROptions()))
+
+        // Wrap in the OID4VP Authorization Response object: the base64url CBOR DeviceResponse under vp_token.
+        let plaintext = try encodeVPToken(deviceResponseBytes: deviceResponseBytes)
 
         // JWE-encrypt for the verifier. apu = mdocGeneratedNonce, apv = the verifier's nonce.
         let jwe = try jweEncrypter.encrypt(
@@ -184,6 +187,19 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
 
         // PUT the compact JWE to the presigned response URL.
         try await remoteTransport.submitResponse(encryptedResponse: jwe, to: request.responseURI)
+    }
+
+    /// Encodes the OID4VP Authorization Response object: the base64url CBOR `DeviceResponse` nested under
+    /// `vp_token`, keyed by the credential identifier. This JSON is the plaintext the JWE encrypts.
+    private func encodeVPToken(deviceResponseBytes: Data) throws -> Data {
+        let authorizationResponse = AuthorizationResponse(
+            vpToken: ["mDL": deviceResponseBytes.base64URLEncodedString()]
+        )
+        do {
+            return try JSONEncoder().encode(authorizationResponse)
+        } catch {
+            throw SessionError.generic("Failed to encode the vp_token response object")
+        }
     }
 
     /// Bridges the validation module's decoded key to the crypto module's key type (field-identical).
@@ -250,4 +266,14 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         }
         return session
     }
+}
+
+/// The OID4VP Authorization Response object carried as the JWE plaintext: a `vp_token` map keyed by the
+/// credential identifier, whose value is the base64url-encoded CBOR `DeviceResponse`.
+private struct AuthorizationResponse: Encodable {
+    enum CodingKeys: String, CodingKey {
+        case vpToken = "vp_token"
+    }
+
+    let vpToken: [String: String]
 }
