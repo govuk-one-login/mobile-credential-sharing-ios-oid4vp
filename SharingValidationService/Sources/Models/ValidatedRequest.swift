@@ -6,7 +6,7 @@ public struct ValidatedRequest: Sendable, Equatable {
     public let state: String?
     public let nonce: String
     /// The full `client_id` tstr including its prefix (e.g. `x509_san_dns:verifier.example.com`),
-    /// as required verbatim by the OID4VP SessionTranscript hash (Step 11).
+    /// as required verbatim by the OID4VP SessionTranscript hash.
     public let clientID: String
     public let clientIdentifierPrefix: ClientIdentifierPrefix
     public let verifierEncryptionKey: VerifierEncryptionKey

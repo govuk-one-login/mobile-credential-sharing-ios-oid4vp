@@ -1,9 +1,18 @@
 import Foundation
 
+/// Validates a verified OID4VP request object against the engagement deeplink and OID4VP rules,
+/// producing the ``ValidatedRequest`` the response is built from.
 public struct RequestValidator {
     public init() {}
 
-    // swiftlint:disable:next function_body_length
+    // swiftlint:disable function_body_length
+    /// Validates the request object's header, audience, response type/mode, `client_id` (and its
+    /// certificate SAN), nonce, verifier encryption key, and DCQL query, returning the validated request.
+    /// - Parameters:
+    ///   - requestObject: the signature-verified request object claims.
+    ///   - uriMetadata: the parsed engagement deeplink to cross-check `client_id` against.
+    /// - Returns: a ``ValidatedRequest`` carrying everything needed to build the response.
+    /// - Throws: ``ValidationError`` on the first rule that fails.
     public func validate(
         requestObject: VerifiedRequestObject,
         uriMetadata: URIMetadata
@@ -98,4 +107,5 @@ public struct RequestValidator {
             verifierEncryptionKey: verifierEncryptionKey
         )
     }
+    // swiftlint:enable function_body_length
 }

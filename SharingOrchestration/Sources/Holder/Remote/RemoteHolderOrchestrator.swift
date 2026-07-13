@@ -9,9 +9,9 @@ import SwiftCBOR
 ///
 /// Mirrors `ISOHolderOrchestrator` but drives the request-side pipeline: parse the engagement URI,
 /// fetch and verify the signed Authorization Request Object, validate it, map the DCQL query to an
-/// ISO `DeviceRequest`, then await user consent. On approval it builds the SessionTranscript (Step 11),
-/// signs the DeviceAuth (Step 12), assembles the `DeviceResponse` (Steps 13–14), JWE-encrypts it
-/// (Step 15) and PUTs it to the verifier's `response_uri` (Step 16).
+/// ISO `DeviceRequest`, then await user consent. On approval it builds the `SessionTranscript`, signs
+/// the `DeviceAuth`, assembles the `DeviceResponse`, JWE-encrypts it and PUTs it to the verifier's
+/// `response_uri`.
 @MainActor
 public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
     private(set) var session: RemoteHolderSessionProtocol?
@@ -33,6 +33,12 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
     private let cryptoService: CryptoServiceProtocol
     private let jweEncrypter: JWEEncrypting
 
+    /// Creates an orchestrator for a single Remote sharing journey.
+    /// - Parameters:
+    ///   - deeplink: the `mdoc-openid4vp://` engagement URL that started the journey.
+    ///   - remoteTransport: fetches the request object and submits the response.
+    ///   - credentialRequestHandler: retrieves the credential, filters it, and signs the DeviceAuth.
+    /// The remaining parameters are collaborators with production defaults, overridable for testing.
     public init(
         deeplink: URL,
         remoteTransport: RemoteTransportProtocol,
@@ -129,14 +135,14 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         }
     }
 
-    /// Builds and submits the device-signed response after user approval: SessionTranscript (Step 11),
-    /// DeviceAuth signature (Step 12), then assemble → encode → JWE-encrypt → PUT (Steps 13–16).
+    /// Builds and submits the device-signed response after user approval: build the `SessionTranscript`,
+    /// sign the `DeviceAuth`, then assemble → encode → JWE-encrypt → PUT.
     func prepareResponse() async {
         guard let session = getSession() else { return }
         do {
             try buildSessionTranscript(in: session)
 
-            // Step 12: build the DeviceAuthentication bytes, sign them via the consumer's device key,
+            // Build the DeviceAuthentication bytes, sign them via the consumer's device key,
             // and assemble the COSE_Sign1 DeviceSigned.
             try cryptoService.constructDeviceAuthenticationBytes(in: session)
             try await credentialRequestHandler.signDeviceAuthenticationBytes(in: session)
@@ -151,8 +157,8 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         }
     }
 
-    /// Steps 13–16: assemble the `DeviceResponse` from the disclosed credential and device signature,
-    /// CBOR-encode it, JWE-encrypt it for the verifier, and PUT it to the `response_uri`.
+    /// Assembles the `DeviceResponse` from the disclosed credential and device signature, CBOR-encodes it,
+    /// JWE-encrypts it for the verifier, and PUTs it to the `response_uri`.
     private func assembleAndSubmitResponse(in session: RemoteHolderSessionProtocol) async throws {
         guard let request = session.validatedRequest else {
             throw SessionError.generic("Validated request missing while assembling the response")
@@ -163,12 +169,12 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
             throw SessionError.generic("Response elements missing while assembling the response")
         }
 
-        // Steps 13–14: build the single-document DeviceResponse and CBOR-encode it.
+        // Build the single-document DeviceResponse and CBOR-encode it.
         let document = Document(docType: docType, issuerSigned: issuerSigned, deviceSigned: deviceSigned)
         let deviceResponse = DeviceResponse(documents: [document], status: .ok)
         let plaintext = Data(deviceResponse.encode(options: CBOROptions()))
 
-        // Step 15: JWE-encrypt for the verifier. apu = mdocGeneratedNonce, apv = the verifier's nonce.
+        // JWE-encrypt for the verifier. apu = mdocGeneratedNonce, apv = the verifier's nonce.
         let jwe = try jweEncrypter.encrypt(
             plaintext: plaintext,
             verifierKey: verifierKey(from: request.verifierEncryptionKey),
@@ -176,7 +182,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
             agreementPartyVInfo: Data(request.nonce.utf8)
         )
 
-        // Step 16: PUT the compact JWE to the presigned response URL.
+        // PUT the compact JWE to the presigned response URL.
         try await remoteTransport.submitResponse(encryptedResponse: jwe, to: request.responseURI)
     }
 
@@ -189,7 +195,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         )
     }
 
-    /// Step 11: binds the response to this request by building the OID4VP `SessionTranscript` and the
+    /// Binds the response to this request by building the OID4VP `SessionTranscript` and the
     /// `mdocGeneratedNonce` reused as the JWE `apu`, storing both for the response-building steps.
     private func buildSessionTranscript(in session: RemoteHolderSessionProtocol) throws {
         guard let request = session.validatedRequest else {

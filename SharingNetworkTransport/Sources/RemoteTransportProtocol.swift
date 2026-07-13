@@ -1,6 +1,11 @@
 import Foundation
 
+/// The network operations for the OID4VP (Remote) flow: fetching the signed request object and
+/// uploading the encrypted response.
 public protocol RemoteTransportProtocol: Sendable {
+    /// Fetches the signed Authorization Request Object from the verifier's `request_uri`.
+    /// - Parameter requestURI: the presigned URL from the engagement deeplink.
+    /// - Returns: the request object as a compact JWS string.
     func fetchRequestObject(from requestURI: URL) async throws -> String
 
     /// Uploads the encrypted Authorization Response to the verifier's presigned URL.
