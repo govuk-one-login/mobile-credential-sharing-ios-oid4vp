@@ -10,13 +10,13 @@ import SwiftCBOR
 public struct OID4VPTranscript {
     /// The transcript itself, for later CBOR use (e.g. the DeviceAuthentication payload).
     public let sessionTranscript: SessionTranscript
-    /// The Tag-24 wrapped, CBOR-encoded transcript — the payload the DeviceAuth signature covers (Step 12).
+    /// The Tag-24 wrapped, CBOR-encoded transcript — the payload the DeviceAuth signature covers.
     public let sessionTranscriptBytes: [UInt8]
-    /// The wallet's fresh nonce, reused as the JWE `apu` when encrypting the response (Step 15).
+    /// The wallet's fresh nonce, reused as the JWE `apu` when encrypting the response.
     public let mdocGeneratedNonce: [UInt8]
 }
 
-/// Builds the OID4VP `SessionTranscript` (Step 11), binding the response to this specific request.
+/// Builds the OID4VP `SessionTranscript`, binding the response to this specific request.
 ///
 /// The transcript is `[null, null, OID4VPHandover]` where the handover hashes `client_id` and
 /// `response_uri` together with a freshly generated `mdocGeneratedNonce`, alongside the verifier's nonce.
@@ -34,6 +34,12 @@ public struct OID4VPSessionTranscriptBuilder {
         self.makeNonce = makeNonce
     }
 
+    /// Builds the SessionTranscript for this request, generating a fresh `mdocGeneratedNonce`.
+    /// - Parameters:
+    ///   - clientID: the verifier's full `client_id` (hashed into the handover).
+    ///   - responseURI: the verifier's `response_uri` (hashed into the handover).
+    ///   - verifierNonce: the verifier's nonce from the request, carried in the handover.
+    /// - Returns: the transcript, its CBOR-encoded bytes, and the generated `mdocGeneratedNonce`.
     public func build(
         clientID: String,
         responseURI: String,

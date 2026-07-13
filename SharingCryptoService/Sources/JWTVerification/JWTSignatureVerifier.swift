@@ -68,7 +68,7 @@ extension JWTSignatureVerifier {
         guard let typ = header["typ"] as? String else {
             throw .unsupportedType("none")
         }
-        // The Authorization Request Object is typed as `JWT` per the tech design (Step 3).
+        // The Authorization Request Object is typed as `JWT`.
         guard typ == "JWT" else {
             throw .unsupportedType(typ)
         }

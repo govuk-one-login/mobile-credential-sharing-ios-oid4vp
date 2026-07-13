@@ -3,6 +3,10 @@ import SharingCryptoService
 import SharingValidationService
 
 // MARK: - RemoteHolderSession protocol
+
+/// The in-flight state for the OID4VP (Remote) flow: the validated request and mapped device request,
+/// the matched credential and disclosed items, and the response-construction artefacts. State-changing
+/// operations are gated to the session's current lifecycle state.
 public protocol RemoteHolderSessionProtocol:
     CredentialSessionProtocol, ResponseConstructionSessionProtocol, Sendable {
     var currentState: HolderSessionState { get }
@@ -32,12 +36,12 @@ public final class RemoteHolderSession: RemoteHolderSessionProtocol, @unchecked 
     public private(set) var matchedCredential: Credential?
     public private(set) var issuerSigned: IssuerSigned?
 
-    // Response-building artefacts (Step 11 onward)
+    // Response-building artefacts (SessionTranscript + nonce)
     public private(set) var sessionTranscript: SessionTranscript?
     public private(set) var sessionTranscriptBytes: [UInt8]?
     public private(set) var mdocGeneratedNonce: [UInt8]?
 
-    // ResponseConstructionSessionProtocol (Step 12 — DeviceAuth)
+    // ResponseConstructionSessionProtocol (DeviceAuth)
     public private(set) var deviceAuthenticationBytes: Data?
     public private(set) var signatureBytes: Data?
     public private(set) var deviceSigned: DeviceSigned?

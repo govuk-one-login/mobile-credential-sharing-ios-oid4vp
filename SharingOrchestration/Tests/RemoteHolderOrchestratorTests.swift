@@ -221,13 +221,13 @@ struct RemoteHolderOrchestratorTests {
         try sut.session?.transition(to: .processingResponse)
         await sut.prepareResponse()
 
-        // Steps 11–12 ran: transcript, nonce, and the signed DeviceAuth are on the session.
+        // Transcript, nonce, and the signed DeviceAuth are on the session.
         #expect(sut.session?.sessionTranscript != nil)
         #expect(sut.session?.mdocGeneratedNonce?.count == 32)
         #expect(sut.session?.deviceSigned != nil)
         #expect(handler.didCallSignDeviceAuthenticationBytes == true)
 
-        // Steps 13–16: a compact JWE was PUT to the request's response URI, and the flow succeeded.
+        // A compact JWE was PUT to the request's response URI, and the flow succeeded.
         let submitted = try #require(transport.submitted)
         #expect(submitted.url.absoluteString == "https://verifier.example.com/response")
         #expect(submitted.jwe.components(separatedBy: ".").count == 5)

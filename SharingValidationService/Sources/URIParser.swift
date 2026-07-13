@@ -1,5 +1,9 @@
 import Foundation
 
+/// Parses an `mdoc-openid4vp://` engagement deeplink into its `client_id` and `request_uri`.
+///
+/// The deeplink carries only the two parameters needed to begin the flow; the remaining request
+/// parameters live inside the signed request object fetched from `request_uri`.
 public struct URIParser {
     static let asciiURLSafeCharacters = CharacterSet(
         charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
@@ -7,6 +11,10 @@ public struct URIParser {
 
     public init() {}
 
+    /// Parses and validates the engagement deeplink.
+    /// - Parameter uri: the `mdoc-openid4vp://` URL received by the app.
+    /// - Returns: the extracted `client_id`, its identifier prefix, and the `request_uri`.
+    /// - Throws: ``ValidationError`` if the scheme is wrong or `client_id`/`request_uri` are missing or malformed.
     public func parse(uri: URL) throws(ValidationError) -> URIMetadata {
         guard uri.scheme?.lowercased() == "mdoc-openid4vp" else {
             throw .missingScheme
