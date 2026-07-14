@@ -40,7 +40,7 @@ public struct SharingNetworkingClient: RemoteTransportProtocol {
     ) async throws {
         var request = URLRequest(url: uploadURL)
         request.httpMethod = "PUT"
-        request.httpBody = Data(jwe.utf8)
+        request.httpBody = Data("response=\(jwe)".utf8)
         // Must match the Content-Type the backend signed the presigned URL with, or S3 rejects the
         // upload with a 403. The body is the raw JWE despite the form-urlencoded content type.
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
