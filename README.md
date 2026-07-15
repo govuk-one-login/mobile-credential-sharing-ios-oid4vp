@@ -1,18 +1,27 @@
 # Mobile | Credential sharing SDK | iOS
 
-This SDK provides an ISO 18013-5 compliant framework for **Holder** (credential sharing) and **Verifier** (credential requesting) roles. Consuming applications adopt the role relevant to their use case (e.g., an identity wallet adopts the Holder role; a relying party app adopts the Verifier role).
+This SDK provides a framework for **Holder** (credential sharing) and **Verifier** (credential requesting) roles. Consuming applications adopt the role relevant to their use case (e.g., an identity wallet adopts the Holder role; a relying party app adopts the Verifier role).
 
-The current implementation includes a demo app and implements ISO 18013-5 for in-person Bluetooth presentation and verification.
+The current implementation includes a demo app and supports two Holder presentation flows:
+
+- **ISO (in-person):** ISO 18013-5 proximity presentation and verification over Bluetooth, initiated by a QR code / device engagement.
+- **Remote (OID4VP):** OpenID for Verifiable Presentations, initiated by an `mdoc-openid4vp://` deeplink. The wallet fetches a signed request from the verifier and returns an encrypted response over HTTPS — no proximity or Bluetooth.
 
 For internal team members: our ways of working can be found on Confluence.
 
 ## Overview
 
-The SDK implements the ISO 18013-5 specification:
+**ISO 18013-5 (in-person):**
 
 - **Device Engagement:** Generates and scans QR codes; broadcasts and connects over BLE/NFC.
 - **Session Management:** Establishes secure channels (mdoc session encryption).
 - **Message Passing:** Creates, transmits, and parses `DeviceRequests` and `DeviceResponses`.
+
+**OID4VP (Remote):**
+
+- **Request handling:** Parses the `mdoc-openid4vp://` deeplink, fetches the signed Authorization Request Object from the verifier's `request_uri`, verifies its JWS signature, and validates it.
+- **Query processing:** Maps the verifier's DCQL query to an ISO `ItemsRequest`, then retrieves and selectively discloses the matching credential attributes.
+- **Response building:** Binds the response to the request via an OID4VP `SessionTranscript`, signs the `DeviceAuth`, assembles the `DeviceResponse`, JWE-encrypts it (ECDH-ES + A256GCM) for the verifier, and PUTs it to the `response_uri`.
 
 ### Credential Provisioning Flow
 
@@ -26,19 +35,23 @@ The user does not pre-select a credential prior to session initialisation. Verif
 
 This repository contains targets for: 
 
-- Orchestration: Orchestrates the flow & holds the current session and state
+- Orchestration: Orchestrates the flow & holds the current session and state (ISO and Remote)
 - CredentialSharingUI: represents the UI layer connecting to the Orchestrator
 - PrerequisiteGate: ensures the device is capable of performing the transaction before cryptography & transport
-- CryptoService: representing data models in CBOR format & encryption and decryption of data for transit
-- BluetoothTransport: sharing data over Bluetooth
+- CryptoService: representing data models in CBOR format, session encryption/decryption, and the OID4VP JWE response encrypter
+- ValidationService: parses the `mdoc-openid4vp://` deeplink and validates the signed request object (Remote flow)
+- BluetoothTransport: sharing data over Bluetooth (ISO flow)
+- NetworkTransport: fetches the request object and PUTs the encrypted response over HTTPS (Remote flow)
 - CameraService: Holds the camera logic for Verifier scanning
 
 ```mermaid
 classDiagram
 namespace Orchestration {
-    class HolderOrchestrator
+    class ISOHolderOrchestrator
+    class RemoteHolderOrchestrator
     class VerifierOrchestrator
-    class HolderSession
+    class ISOHolderSession
+    class RemoteHolderSession
     class VerifierSession
 }
 
@@ -63,8 +76,40 @@ namespace BluetoothTransmission {
     class BlePeripheralTransport
 }
 
+namespace RemoteTransport {
+    class RemoteTransportProtocol{
+        <<interface>>
+        fetchRequestObject(URL) String
+        submitResponse(String, URL)
+    }
+    class SharingNetworkingClient
+}
+
+namespace Validation {
+    class URIParser
+    class RequestValidator
+}
+
+namespace ResponseCrypto {
+    class JWTSignatureVerifier
+    class OID4VPSessionTranscriptBuilder
+    class JWEEncrypting{
+        <<interface>>
+        encrypt(...) String
+    }
+    class ECDHESJWEEncrypter
+}
+
 VerifierSession <|-- BleCentralTransport
-HolderSession <|-- BlePeripheralTransport
+ISOHolderSession <|-- BlePeripheralTransport
+RemoteTransportProtocol <|-- SharingNetworkingClient
+JWEEncrypting <|-- ECDHESJWEEncrypter
+RemoteHolderOrchestrator --> RemoteTransportProtocol
+RemoteHolderOrchestrator --> URIParser
+RemoteHolderOrchestrator --> RequestValidator
+RemoteHolderOrchestrator --> JWTSignatureVerifier
+RemoteHolderOrchestrator --> OID4VPSessionTranscriptBuilder
+RemoteHolderOrchestrator --> JWEEncrypting
 ```
 
 ## Requirements
@@ -179,9 +224,68 @@ The Consumer initiates the engagement QR code display. The SDK awaits the Verifi
 
 ```swift
 // The SDK displays the Device Engagement UI (QR code) and listens for Verifiers.
-let journeyVC = presenter.viewControllerForSharingJourney()
+let journeyVC = presenter.viewControllerForISOSharingJourney()
 self.present(journeyVC)
 ```
+
+---
+
+### Integration Guide: Holder Role — Remote (OID4VP)
+
+The Remote flow lets a Holder respond to an **OpenID for Verifiable Presentations** request delivered as an `mdoc-openid4vp://` deeplink (for example, tapped in a browser on the same device). Unlike the ISO flow there is no proximity engagement or Bluetooth: the wallet fetches a signed request from the verifier and returns an **encrypted response over HTTPS**.
+
+The Consumer integration is almost identical to the ISO flow — **the same `CredentialProvider` is reused unchanged**. Retrieval and device signing work exactly as before (the SDK builds the `DeviceAuthentication` payload; the Consumer signs it with the Secure Enclave key). Only the entry point differs.
+
+#### 1. Register the URL scheme
+
+Add the `mdoc-openid4vp` scheme to your app's `Info.plist` so the OS launches your app for these deeplinks:
+
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+    <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>mdoc-openid4vp</string>
+        </array>
+    </dict>
+</array>
+```
+
+#### 2. Start a Remote sharing session from the deeplink
+
+When your app receives an `mdoc-openid4vp://` URL (e.g. in `SceneDelegate`'s `openURLContexts`), hand it to the presenter:
+
+```swift
+let credentialProvider = MyCredentialProvider()  // the same provider as the ISO flow
+let presenter = CredentialPresenter(
+    credentialProvider: credentialProvider,
+    logger: logger,
+    completion: {}
+)
+
+// The SDK fetches & validates the request, shows the consent screen, then builds,
+// encrypts and submits the response. It dismisses the modal on success.
+let journeyVC = presenter.viewControllerForRemoteSharingJourney(deeplink: url)
+self.present(journeyVC, animated: true)
+```
+
+#### Internal flow
+
+After the deeplink is received, the SDK drives the whole exchange; the Consumer is only involved via the `CredentialProvider` (credential lookup and device signing):
+
+1. **Parse** the `mdoc-openid4vp://` deeplink to extract `client_id` and `request_uri`.
+2. **Fetch** the signed Authorization Request Object from `request_uri`.
+3. **Verify** its JWS signature against the leaf certificate in the `x5c` header.
+4. **Validate** the request object (audience, response type/mode, `client_id` ↔ certificate SAN, nonce, verifier encryption key, DCQL query).
+5. **Map** the DCQL query to an ISO `ItemsRequest`.
+6. **Retrieve** the matching credential from the `CredentialProvider` and **filter** it to the requested attributes (selective disclosure).
+7. **Consent:** display the requested attributes and the verifier's identity for the user to approve.
+8. **SessionTranscript:** build the OID4VP handover (hashing `client_id`, `response_uri`, and a fresh `mdocGeneratedNonce`) to bind the response to this request.
+9. **DeviceAuth:** construct the `DeviceAuthentication` payload and have the `CredentialProvider` sign it (COSE_Sign1).
+10. **Assemble** the `DeviceResponse` and CBOR-encode it, wrapped in the OID4VP `vp_token` response object.
+11. **Encrypt** the response as a compact JWE (ECDH-ES key agreement + A256GCM) using the verifier's public key.
+12. **Submit** the JWE to the verifier's `response_uri` via HTTPS PUT, then dismiss on success.
 
 ---
 
@@ -245,9 +349,9 @@ do {
 
 Consuming apps must include the following keys in their `Info.plist` to use this SDK. iOS will prompt the user with your purpose string the first time the relevant feature is accessed, and the app will crash at runtime if the key is missing.
 
-Which keys you need depends on the role your app adopts:
+Which keys you need depends on the role your app adopts. These apply to the **ISO (in-person)** flows; the **Remote (OID4VP)** Holder flow uses HTTPS only and needs no Bluetooth or camera permission (it does require the `mdoc-openid4vp` URL scheme — see the Remote integration guide above).
 
-| Key | Holder | Verifier | Prompted |
+| Key | Holder (ISO) | Verifier | Prompted |
 |---|---|---|---|
 | `NSBluetoothAlwaysUsageDescription` | Required | Required | First BLE connection |
 | `NSCameraUsageDescription` | — | Required | First QR scan |
