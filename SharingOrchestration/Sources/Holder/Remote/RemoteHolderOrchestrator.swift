@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import SharingCryptoService
 import SharingNetworkTransport
@@ -92,6 +93,11 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
                 payloadData: verifiedJWT.payloadData,
                 leafCertificateSANs: verifiedJWT.leafCertificateSANs
             )
+
+            // Persist the verified request object before validation so a validation failure can still
+            // recover the response_uri and key to send the verifier an encrypted error response.
+            try session.setVerifiedRequestObject(requestObject)
+
             let validatedRequest = try requestValidator.validate(
                 requestObject: requestObject,
                 uriMetadata: uriMetadata
@@ -108,7 +114,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
             try session.transition(to: .awaitingUserConsent(deviceRequest))
             delegate?.orchestrator(didUpdateState: session.currentState)
         } catch {
-            handleFailure(error)
+            await handleFailure(error)
         }
     }
 
@@ -124,14 +130,15 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
 
     public func userDidApprove() {
         guard let session = getSession() else { return }
-        do {
-            try session.transition(to: .processingResponse)
-            delegate?.orchestrator(didUpdateState: session.currentState)
-            Task {
+        Task {
+            do {
+                try session.transition(to: .processingResponse)
+                delegate?.orchestrator(didUpdateState: session.currentState)
+                
                 await prepareResponse()
+            } catch {
+                await handleFailure(error)
             }
-        } catch {
-            handleFailure(error)
         }
     }
 
@@ -153,7 +160,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
             try session.transition(to: .success)
             delegate?.orchestrator(didUpdateState: session.currentState)
         } catch {
-            handleFailure(error)
+            await handleFailure(error)
         }
     }
 
@@ -230,20 +237,29 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
     }
 
     public func userDidDeny() {
-        transitionToCancel()
-        session = nil
+        Task {
+            await handleUserDenial()
+        }
+    }
+
+    /// Sends the verifier an `access_denied` error response (when a validated request is available),
+    /// then cancels the session. Declining after consent is a deliberate denial the verifier is told
+    /// about, unlike `cancel()`, which is a local teardown.
+    func handleUserDenial() async {
+        guard let session = getSession() else { return }
+        if let context = errorResponseContext() {
+            await submitErrorResponse(.userDeclined, to: context)
+        }
+        do {
+            try session.transition(to: .cancelled)
+            delegate?.orchestrator(didUpdateState: session.currentState)
+        } catch {
+            delegate?.orchestrator(didUpdateState: .failed(.generic(error.localizedDescription)))
+        }
+        self.session = nil
     }
 
     public func cancel() {
-        transitionToCancel()
-        session = nil
-    }
-
-    public func resolve(_: MissingPrerequisite) {
-        // Remote flow has no prerequisite gate; nothing to resolve.
-    }
-
-    private func transitionToCancel() {
         guard let session = getSession() else { return }
         do {
             try session.transition(to: .cancelled)
@@ -251,12 +267,67 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         } catch {
             delegate?.orchestrator(didUpdateState: .failed(.generic(error.localizedDescription)))
         }
+        self.session = nil
     }
 
-    private func handleFailure(_ error: Error) {
+    public func resolve(_: MissingPrerequisite) {
+        // Remote flow has no prerequisite gate; nothing to resolve.
+    }
+
+    /// Transitions to `.failed`, first sending the verifier a JWE-encrypted error response when the
+    /// failure is one the spec reports (`invalid_request` / `access_denied`) and a usable response
+    /// channel exists. Failures before signature verification, or whose fault is the response channel
+    /// or key itself, abort locally with nothing sent.
+    private func handleFailure(_ error: Error) async {
+        if let oid4vpError = OID4VPError.classify(error),
+           let context = errorResponseContext() {
+            await submitErrorResponse(oid4vpError, to: context)
+        }
         let sessionError = (error as? SessionError) ?? .generic(error.localizedDescription)
         try? session?.transition(to: .failed(sessionError))
         delegate?.orchestrator(didUpdateState: .failed(sessionError))
+    }
+
+    /// The context for an error response, preferring the fully ``ValidatedRequest`` and otherwise
+    /// recovering it best-effort from the verified (but not yet validated) request object. `nil` when
+    /// no verified request exists yet or its response channel/key is unusable.
+    private func errorResponseContext() -> ErrorResponseContext? {
+        if let validated = session?.validatedRequest {
+            return ErrorResponseContext(
+                responseURI: validated.responseURI,
+                verifierEncryptionKey: validated.verifierEncryptionKey,
+                verifierNonce: validated.nonce
+            )
+        }
+        guard let requestObject = session?.verifiedRequestObject else {
+            return nil
+        }
+        return requestValidator.errorResponseContext(from: requestObject)
+    }
+
+    /// JWE-encrypts the error object and PUTs it to the verifier's `response_uri`. A fresh nonce is used
+    /// as the JWE `apu` (error responses carry no `SessionTranscript`); `apv` is the verifier's nonce.
+    /// A failure here is swallowed: the flow is already failing and must not be masked by a send error.
+    private func submitErrorResponse(_ error: OID4VPError, to context: ErrorResponseContext) async {
+        do {
+            let plaintext = try JSONEncoder().encode(
+                OID4VPErrorObject(error: error.code, errorDescription: error.description)
+            )
+            let jwe = try jweEncrypter.encrypt(
+                plaintext: plaintext,
+                verifierKey: verifierKey(from: context.verifierEncryptionKey),
+                agreementPartyUInfo: Data(freshNonce()),
+                agreementPartyVInfo: Data(context.verifierNonce.utf8)
+            )
+            try await remoteTransport.submitResponse(encryptedResponse: jwe, to: context.responseURI)
+        } catch {
+            print("Failed to submit OID4VP error response: \(error)")
+        }
+    }
+
+    /// 32 secure-random bytes for the error response's JWE `apu`.
+    private func freshNonce() -> [UInt8] {
+        Array(SymmetricKey(size: .bits256).withUnsafeBytes(Array.init))
     }
 
     private func getSession() -> RemoteHolderSessionProtocol? {

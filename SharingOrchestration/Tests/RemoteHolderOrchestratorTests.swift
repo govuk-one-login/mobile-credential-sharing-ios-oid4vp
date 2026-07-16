@@ -66,6 +66,49 @@ struct RemoteHolderOrchestratorTests {
         )
     }
 
+    /// A signature-verified JWT that fails request validation (a `redirect_uri` is present, forbidden in
+    /// `direct_post.jwt` mode) but still carries a valid HTTPS `response_uri`, encryption key, and nonce —
+    /// so an `invalid_request` error response can be encrypted and sent.
+    private func makeValidationFailingJWT() -> VerifiedJWT {
+        let header = Data(#"{"typ":"JWT","alg":"ES256"}"#.utf8)
+        let payload = Data("""
+        {
+            "aud": "https://self-issued.me/v2",
+            "client_id": "x509_san_dns:verifier.example.com",
+            "response_type": "vp_token",
+            "response_mode": "direct_post.jwt",
+            "response_uri": "https://verifier.example.com/response",
+            "redirect_uri": "https://verifier.example.com/redirect",
+            "nonce": "abc123",
+            "client_metadata": {
+                "jwks": {
+                    "keys": [
+                        {
+                            "kty": "EC", "crv": "P-256", "use": "enc", "alg": "ECDH-ES",
+                            "x": "\(Self.validEncryptionKeyX)", "y": "\(Self.validEncryptionKeyY)",
+                            "kid": "verifier-key-1"
+                        }
+                    ]
+                }
+            },
+            "dcql_query": {
+                "credentials": [
+                    {
+                        "id": "mdl", "format": "mso_mdoc",
+                        "meta": { "doctype_value": "org.iso.18013.5.1.mDL" },
+                        "claims": [ { "path": ["org.iso.18013.5.1", "family_name"] } ]
+                    }
+                ]
+            }
+        }
+        """.utf8)
+        return VerifiedJWT(
+            headerData: header,
+            payloadData: payload,
+            leafCertificateSANs: ["verifier.example.com"]
+        )
+    }
+
     private func makeSUT(
         transport: RemoteTransportProtocol,
         verifier: SignatureVerifying,
@@ -121,7 +164,7 @@ struct RemoteHolderOrchestratorTests {
 
     // MARK: - Failure Paths
 
-    @Test("Fetch error transitions to failed")
+    @Test("Fetch error transitions to failed and sends nothing to the verifier")
     func fetchErrorFails() async {
         let (sut, delegate) = makeSUT(
             transport: MockRemoteTransport(error: URLError(.notConnectedToInternet)),
@@ -133,16 +176,19 @@ struct RemoteHolderOrchestratorTests {
         #expect(delegate.states.last?.kind == .failed)
     }
 
-    @Test("Signature verification failure transitions to failed")
+    @Test("Signature verification failure transitions to failed and sends nothing to the verifier")
     func verificationFailureFails() async {
+        let transport = MockRemoteTransport(jwt: "any.jwt.value")
         let (sut, delegate) = makeSUT(
-            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            transport: transport,
             verifier: MockSignatureVerifier(result: .failure(.invalidSignature))
         )
 
         await sut.processRequest()
 
         #expect(delegate.states.last?.kind == .failed)
+        // An unauthenticated verifier must not be contacted — no error response is sent.
+        #expect(transport.submitted == nil)
     }
 
     @Test("Validation failure (wrong audience) transitions to failed")
@@ -160,41 +206,66 @@ struct RemoteHolderOrchestratorTests {
         #expect(delegate.states.last?.kind == .failed)
     }
 
-    @Test("Credential retrieval failure transitions to failed")
-    func credentialRetrievalFailureFails() async {
+    @Test("Credential retrieval failure sends access_denied and transitions to failed")
+    func credentialRetrievalFailureFails() async throws {
         let handler = MockCredentialRequestHandler()
         handler.errorToThrow = CredentialRequestError.noCredentialsReturned
+        let transport = MockRemoteTransport(jwt: "any.jwt.value")
+        let encrypter = MockJWEEncrypter()
         let (sut, delegate) = makeSUT(
-            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            transport: transport,
             verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT())),
-            handler: handler
+            handler: handler,
+            jweEncrypter: encrypter
         )
 
         await sut.processRequest()
 
         #expect(delegate.states.last?.kind == .failed)
+        try expectSubmittedError(transport, encrypter, code: "access_denied")
     }
 
-    @Test("Selective-disclosure filter failure transitions to failed")
-    func filterFailureFails() async {
+    @Test("Selective-disclosure filter failure sends access_denied and transitions to failed")
+    func filterFailureFails() async throws {
         let handler = MockCredentialRequestHandler()
         handler.filterErrorToThrow = IssuerSignedFilterError.noMatchingAttributes
+        let transport = MockRemoteTransport(jwt: "any.jwt.value")
+        let encrypter = MockJWEEncrypter()
         let (sut, delegate) = makeSUT(
-            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            transport: transport,
             verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT())),
-            handler: handler
+            handler: handler,
+            jweEncrypter: encrypter
         )
 
         await sut.processRequest()
 
         #expect(delegate.states.last?.kind == .failed)
+        try expectSubmittedError(transport, encrypter, code: "access_denied")
+    }
+
+    @Test("Validation failure sends invalid_request and transitions to failed")
+    func validationFailureSendsInvalidRequest() async throws {
+        let transport = MockRemoteTransport(jwt: "any.jwt.value")
+        let encrypter = MockJWEEncrypter()
+        let (sut, delegate) = makeSUT(
+            transport: transport,
+            verifier: MockSignatureVerifier(result: .success(makeValidationFailingJWT())),
+            jweEncrypter: encrypter
+        )
+
+        await sut.processRequest()
+
+        #expect(delegate.states.last?.kind == .failed)
+        try expectSubmittedError(transport, encrypter, code: "invalid_request")
     }
 
     @Test("Malformed deeplink (missing scheme) transitions to failed before fetching")
     func malformedDeeplinkFails() async {
+        let transport = MockRemoteTransport(jwt: "any.jwt.value")
         let sut = RemoteHolderOrchestrator(
             deeplink: URL(string: "https://not-openid4vp.example.com")!,
-            remoteTransport: MockRemoteTransport(jwt: "any.jwt.value"),
+            remoteTransport: transport,
             credentialRequestHandler: MockCredentialRequestHandler(),
             signatureVerifier: MockSignatureVerifier(result: .success(makeVerifiedJWT()))
         )
@@ -204,6 +275,8 @@ struct RemoteHolderOrchestratorTests {
         await sut.processRequest()
 
         #expect(delegate.states.map(\.kind) == [.failed])
+        // No verified request yet, so there is no channel to send an error response to.
+        #expect(transport.submitted == nil)
     }
 
     // MARK: - User Decision
@@ -282,18 +355,50 @@ struct RemoteHolderOrchestratorTests {
         #expect(delegate.states.last?.kind == .failed)
     }
 
-    @Test("userDidDeny transitions to cancelled and clears the session")
-    func denyCancels() async {
+    @Test("userDidDeny sends access_denied, transitions to cancelled, and clears the session")
+    func denyCancels() async throws {
+        let transport = MockRemoteTransport(jwt: "any.jwt.value")
+        let encrypter = MockJWEEncrypter()
         let (sut, delegate) = makeSUT(
-            transport: MockRemoteTransport(jwt: "any.jwt.value"),
-            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT()))
+            transport: transport,
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT())),
+            jweEncrypter: encrypter
         )
         await sut.processRequest()
 
-        sut.userDidDeny()
+        // Drive the async denial directly (userDidDeny spawns a Task we cannot await from the test).
+        await sut.handleUserDenial()
 
         #expect(delegate.states.last?.kind == .cancelled)
         #expect(sut.session == nil)
+        let error = try decodeSubmittedError(transport, encrypter)
+        #expect(error["error"] == "access_denied")
+        #expect(error["error_description"] == "User declined to share credential")
+    }
+
+    // MARK: - Error Response Helpers
+
+    /// Asserts an encrypted error response with `code` was PUT to the verifier's response URI.
+    private func expectSubmittedError(
+        _ transport: MockRemoteTransport,
+        _ encrypter: MockJWEEncrypter,
+        code: String
+    ) throws {
+        let submitted = try #require(transport.submitted)
+        #expect(submitted.jwe == encrypter.stubbedJWE)
+        #expect(submitted.url.absoluteString == "https://verifier.example.com/response")
+        let error = try decodeSubmittedError(transport, encrypter)
+        #expect(error["error"] == code)
+    }
+
+    /// Decodes the JSON error object handed to the encrypter as the JWE plaintext.
+    private func decodeSubmittedError(
+        _ transport: MockRemoteTransport,
+        _ encrypter: MockJWEEncrypter
+    ) throws -> [String: String] {
+        let plaintext = try #require(encrypter.capturedPlaintext)
+        let json = try JSONSerialization.jsonObject(with: plaintext) as? [String: String]
+        return try #require(json)
     }
 }
 
