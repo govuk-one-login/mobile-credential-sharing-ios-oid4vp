@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import SharingCryptoService
 import SharingNetworkTransport
@@ -7,6 +8,7 @@ import Testing
 
 @MainActor
 @Suite("RemoteHolderOrchestrator Tests")
+// swiftlint:disable:next type_body_length
 struct RemoteHolderOrchestratorTests {
     // Valid on-curve P-256 coordinates, so the JWE encrypter can genuinely encrypt in the happy path.
     private static let validEncryptionKeyX = "n-1U0E8Lzhw3-siUNeCoxZ_hnzk3zRaxr3h_CWhmU20"
@@ -411,3 +413,4 @@ private final class RecordingDelegate: HolderOrchestratorDelegate {
         }
     }
 }
+// swiftlint:enable file_length

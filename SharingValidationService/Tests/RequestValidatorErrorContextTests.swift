@@ -7,6 +7,10 @@ struct RequestValidatorErrorContextTests {
     // Arbitrary well-formed 32-byte base64url coordinates; on-curve validity is the crypto module's concern.
     static let validEncryptionKeyX = "KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio"
     static let validEncryptionKeyY = "e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3s"
+    
+    /// Well-formed metadata used as the default so an explicit `nil` argument means "genuinely absent"
+    /// rather than falling back to a valid value.
+    private static let defaultClientMetadata: Data? = try? makeClientMetadata()
 
     let sut = RequestValidator()
 
@@ -38,7 +42,7 @@ struct RequestValidatorErrorContextTests {
 
     @Test("Returns nil when the verifier key is malformed")
     func nilWhenKeyMalformed() throws {
-        let object = makeRequestObject(clientMetadataData: try makeClientMetadata(x: "QUJD"))
+        let object = makeRequestObject(clientMetadataData: try Self.makeClientMetadata(x: "QUJD"))
         #expect(sut.errorResponseContext(from: object) == nil)
     }
 
@@ -52,7 +56,7 @@ struct RequestValidatorErrorContextTests {
     private func makeRequestObject(
         responseURI: String? = "https://verifier.example.com/response",
         nonce: String? = "valid_nonce",
-        clientMetadataData: Data? = nil
+        clientMetadataData: Data? = defaultClientMetadata
     ) -> VerifiedRequestObject {
         VerifiedRequestObject(
             headerTyp: "JWT",
@@ -65,12 +69,13 @@ struct RequestValidatorErrorContextTests {
             nonce: nonce,
             state: nil,
             dcqlQueryData: nil,
-            clientMetadataData: clientMetadataData ?? (try? makeClientMetadata()),
+            clientMetadataData: clientMetadataData,
             leafCertificateSANs: ["verifier.example.com"]
         )
     }
 
-    private func makeClientMetadata(
+
+    private static func makeClientMetadata(
         x: String? = validEncryptionKeyX,
         y: String? = validEncryptionKeyY
     ) throws -> Data {
