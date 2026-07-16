@@ -130,13 +130,15 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
 
     public func userDidApprove() {
         guard let session = getSession() else { return }
-        Task {
-            do {
-                try session.transition(to: .processingResponse)
-                delegate?.orchestrator(didUpdateState: session.currentState)
-                
+        do {
+            try session.transition(to: .processingResponse)
+            delegate?.orchestrator(didUpdateState: session.currentState)
+            
+            Task {
                 await prepareResponse()
-            } catch {
+            }
+        } catch {
+            Task {
                 await handleFailure(error)
             }
         }

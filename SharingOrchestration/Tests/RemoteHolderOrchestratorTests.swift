@@ -357,6 +357,73 @@ struct RemoteHolderOrchestratorTests {
         #expect(delegate.states.last?.kind == .failed)
     }
 
+    @Test("userDidApprove notifies delegate with failed state when session is nil")
+    func approveWithNoSessionFails() {
+        let (sut, delegate) = makeSUT(
+            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT()))
+        )
+        // No processRequest() call, so no session exists yet.
+        sut.userDidApprove()
+
+        #expect(delegate.states.last == .failed(.generic("Session is not available.")))
+    }
+
+    @Test("userDidApprove synchronously transitions to processingResponse and notifies the delegate")
+    func approveTransitionsToProcessingResponse() async {
+        let (sut, delegate) = makeSUT(
+            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT()))
+        )
+        await sut.processRequest()
+
+        sut.userDidApprove()
+
+        // The transition is synchronous; response building continues on a spawned Task.
+        #expect(sut.session?.currentState.kind == .processingResponse)
+        #expect(delegate.states.last?.kind == .processingResponse)
+    }
+
+    @Test("userDidApprove drives the full response pipeline through to success via processingResponse")
+    func approveReachesSuccess() async throws {
+        let transport = MockRemoteTransport(jwt: "any.jwt.value")
+        let encrypter = MockJWEEncrypter()
+        let (sut, delegate) = makeSUT(
+            transport: transport,
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT())),
+            jweEncrypter: encrypter
+        )
+        await sut.processRequest()
+
+        sut.userDidApprove()
+        // userDidApprove spawns a Task for the whole pipeline; drain it to completion.
+        try await drain(until: { delegate.states.last?.kind == .success })
+
+        // It passed through processingResponse en route to success, and submitted the JWE.
+        #expect(delegate.states.map(\.kind).contains(.processingResponse))
+        #expect(delegate.states.last?.kind == .success)
+        let submitted = try #require(transport.submitted)
+        #expect(submitted.jwe == encrypter.stubbedJWE)
+        #expect(submitted.url.absoluteString == "https://verifier.example.com/response")
+    }
+
+    @Test("userDidApprove notifies delegate with failed state when the transition throws")
+    func approveRendersFailedWhenTransitionThrows() async throws {
+        let (sut, delegate) = makeSUT(
+            transport: MockRemoteTransport(jwt: "any.jwt.value"),
+            verifier: MockSignatureVerifier(result: .success(makeVerifiedJWT()))
+        )
+        await sut.processRequest()
+        // Force a terminal state so the transition to .processingResponse is illegal.
+        try sut.session?.transition(to: .cancelled)
+
+        sut.userDidApprove()
+        // The transition throws synchronously, but handleFailure runs on a spawned Task; drain it.
+        try await drain(until: { delegate.states.last?.kind == .failed })
+
+        #expect(delegate.states.last?.kind == .failed)
+    }
+
     @Test("userDidDeny sends access_denied, transitions to cancelled, and clears the session")
     func denyCancels() async throws {
         let transport = MockRemoteTransport(jwt: "any.jwt.value")
@@ -376,6 +443,22 @@ struct RemoteHolderOrchestratorTests {
         let error = try decodeSubmittedError(transport, encrypter)
         #expect(error["error"] == "access_denied")
         #expect(error["error_description"] == "User declined to share credential")
+    }
+
+    // MARK: - Async Helpers
+
+    /// Yields repeatedly until `condition` holds or a bounded number of ticks elapse, letting the Task
+    /// spawned by `userDidApprove` run to completion without hanging the suite if it never settles.
+    private func drain(
+        until condition: () -> Bool,
+        maxTicks: Int = 1_000
+    ) async throws {
+        var ticks = 0
+        while !condition(), ticks < maxTicks {
+            await Task.yield()
+            ticks += 1
+        }
+        try #require(condition(), "Timed out waiting for the response Task to settle")
     }
 
     // MARK: - Error Response Helpers
