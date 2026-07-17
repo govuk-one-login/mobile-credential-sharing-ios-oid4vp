@@ -79,12 +79,26 @@ struct RequestValidatorTests {
 
         let result = try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
 
-        #expect(result.responseURI.absoluteString == "https://verifier.example.com/response")
+        // Preserved verbatim from the request JWT for the byte-exact SessionTranscript hash.
+        #expect(result.responseURI == "https://verifier.example.com/response")
+        #expect(result.responseURL?.absoluteString == "https://verifier.example.com/response")
         #expect(result.nonce == "valid_nonce")
         #expect(result.state == nil)
         #expect(result.clientID == "x509_san_dns:verifier.example.com")
         #expect(result.dcqlQuery.credentials.count == 1)
         #expect(result.dcqlQuery.credentials[0].format == "mso_mdoc")
+    }
+
+    @Test("responseURI preserves the exact request bytes, including query percent-encoding")
+    func responseURIPreservesExactBytes() throws {
+        // A presigned-S3-style URL whose query would be at risk of normalisation on a URL round-trip.
+        let rawURI = "https://verifier.example.com/response?X-Amz-Signature=a%2Fb%3Dc&t=1%202"
+        let requestObject = makeValidRequestObject(responseURI: rawURI)
+        let uriMetadata = makeValidURIMetadata()
+
+        let result = try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
+
+        #expect(result.responseURI == rawURI)
     }
 
     @Test("Validates request with direct_post.jwt response mode")
@@ -94,7 +108,7 @@ struct RequestValidatorTests {
 
         let result = try sut.validate(requestObject: requestObject, uriMetadata: uriMetadata)
 
-        #expect(result.responseURI.absoluteString == "https://verifier.example.com/response")
+        #expect(result.responseURI == "https://verifier.example.com/response")
     }
 
     @Test("Passes when state is nil")

@@ -194,8 +194,12 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
             agreementPartyVInfo: Data(request.nonce.utf8)
         )
 
-        // PUT the compact JWE to the presigned response URL.
-        try await remoteTransport.submitResponse(encryptedResponse: jwe, to: request.responseURI)
+        // PUT the compact JWE to the presigned response URL. The validator already proved response_uri
+        // parses and is HTTPS, so this only fails on an impossible malformed value.
+        guard let responseURL = request.responseURL else {
+            throw SessionError.generic("Validated response_uri is not a valid URL")
+        }
+        try await remoteTransport.submitResponse(encryptedResponse: jwe, to: responseURL)
     }
 
     /// Encodes the OID4VP Authorization Response object: the base64url CBOR `DeviceResponse` nested under
@@ -228,7 +232,7 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
         }
         let transcript = sessionTranscriptBuilder.build(
             clientID: request.clientID,
-            responseURI: request.responseURI.absoluteString,
+            responseURI: request.responseURI,
             verifierNonce: request.nonce
         )
         try session.setSessionTranscript(
@@ -294,9 +298,9 @@ public class RemoteHolderOrchestrator: HolderOrchestratorProtocol {
     /// recovering it best-effort from the verified (but not yet validated) request object. `nil` when
     /// no verified request exists yet or its response channel/key is unusable.
     private func errorResponseContext() -> ErrorResponseContext? {
-        if let validated = session?.validatedRequest {
+        if let validated = session?.validatedRequest, let responseURL = validated.responseURL {
             return ErrorResponseContext(
-                responseURI: validated.responseURI,
+                responseURI: responseURL,
                 verifierEncryptionKey: validated.verifierEncryptionKey,
                 verifierNonce: validated.nonce
             )

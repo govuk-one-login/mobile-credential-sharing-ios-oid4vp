@@ -10,7 +10,7 @@ struct RemoteHolderSessionTests {
     private func makeValidatedRequest() throws -> ValidatedRequest {
         ValidatedRequest(
             dcqlQuery: DCQLQuery(credentials: [], credentialSets: nil),
-            responseURI: try #require(URL(string: "https://verifier.example.com/response")),
+            responseURI: "https://verifier.example.com/response",
             state: nil,
             nonce: "abc123",
             clientID: "x509_san_dns:verifier.example.com",
