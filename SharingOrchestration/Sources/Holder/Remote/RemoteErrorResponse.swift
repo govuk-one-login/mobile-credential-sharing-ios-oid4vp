@@ -21,7 +21,7 @@ struct OID4VPError: Equatable {
 }
 
 extension OID4VPError {
-    /// The response sent when the user declines sharing on the consent screen (Step 8).
+    /// The response sent when the user declines sharing on the consent screen.
     static let userDeclined = OID4VPError(
         code: "access_denied",
         description: "User declined to share credential"

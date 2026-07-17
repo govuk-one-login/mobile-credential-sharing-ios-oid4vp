@@ -227,8 +227,10 @@ extension CryptoService: CryptoServiceProtocol {
             throw CryptoServiceError.deviceAuthenticationElementsNotFound
         }
         
-        let protectedHeaderBytes = COSEAlgorithm.es256.protectedHeaderCBOR.encode()
-        
+        // Same protected header bytes that were hashed inside the Sig_structure (RFC 9052 §4.4), so the
+        // signature verifies against the reconstructed structure.
+        let protectedHeaderBytes = COSESign1.es256ProtectedHeaderBytes
+
         // Construct the untagged COSE_Sign1 array
         let coseSign1: CBOR = .array([
             .byteString(protectedHeaderBytes),
@@ -281,12 +283,16 @@ extension CryptoService: CryptoServiceProtocol {
         let deviceAuthenticationBytes = deviceAuthentication
             .asDataItem(options: CBOROptions())
             .encode()
-            
-        print(
-            "DeviceAuthenticationBytes constructed successfully: \(deviceAuthenticationBytes)"
+
+        // The signature is computed over the COSE Sig_structure, not the payload directly (RFC 9052 §4.4).
+        // DeviceAuthenticationBytes is the detached payload; the emitted COSE_Sign1 uses the same
+        // protected header (generateDeviceSigned) so a verifier reconstructs identical bytes.
+        let toBeSigned = COSESign1.sigStructure(
+            protectedHeaderBytes: COSESign1.es256ProtectedHeaderBytes,
+            payloadBytes: deviceAuthenticationBytes
         )
-            
-        try session.setDeviceAuthenticationBytes(Data(deviceAuthenticationBytes))
+
+        try session.setDeviceAuthenticationBytes(Data(toBeSigned))
     }
 }
 
