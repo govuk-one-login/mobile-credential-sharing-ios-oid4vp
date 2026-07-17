@@ -10,12 +10,14 @@ import SharingValidationService
 public protocol RemoteHolderSessionProtocol:
     CredentialSessionProtocol, ResponseConstructionSessionProtocol, Sendable {
     var currentState: HolderSessionState { get }
+    var verifiedRequestObject: VerifiedRequestObject? { get }
     var validatedRequest: ValidatedRequest? { get }
     var deviceRequest: DeviceRequest? { get }
     var sessionTranscriptBytes: [UInt8]? { get }
     var mdocGeneratedNonce: [UInt8]? { get }
 
     func transition(to state: HolderSessionState) throws
+    func setVerifiedRequestObject(_ requestObject: VerifiedRequestObject) throws
     func setValidatedRequest(_ request: ValidatedRequest, deviceRequest: DeviceRequest) throws
     func setSessionTranscript(
         _ transcript: SessionTranscript,
@@ -29,6 +31,7 @@ public protocol RemoteHolderSessionProtocol:
 /// the request-side artefacts (validated request + mapped `DeviceRequest`) rather than BLE/crypto engagement data.
 public final class RemoteHolderSession: RemoteHolderSessionProtocol, @unchecked Sendable {
     public private(set) var currentState: HolderSessionState = .notStarted
+    public private(set) var verifiedRequestObject: VerifiedRequestObject?
     public private(set) var validatedRequest: ValidatedRequest?
     public private(set) var deviceRequest: DeviceRequest?
 
@@ -62,6 +65,13 @@ public final class RemoteHolderSession: RemoteHolderSessionProtocol, @unchecked 
         }
         currentState = state
         print("State transitioned to: \(currentState)")
+    }
+
+    public func setVerifiedRequestObject(_ requestObject: VerifiedRequestObject) throws {
+        guard currentState.kind == .remoteValidatingRequest else {
+            throw SessionError.incorrectSessionState(currentState.kind.rawValue)
+        }
+        self.verifiedRequestObject = requestObject
     }
 
     public func setValidatedRequest(_ request: ValidatedRequest, deviceRequest: DeviceRequest) throws {
