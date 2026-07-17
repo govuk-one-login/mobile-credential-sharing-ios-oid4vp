@@ -99,7 +99,7 @@ public struct RequestValidator {
 
         return ValidatedRequest(
             dcqlQuery: filteredQuery,
-            responseURI: responseURI,
+            responseURI: responseURIString,
             state: requestObject.state,
             nonce: nonce,
             clientID: uriMetadata.clientID,

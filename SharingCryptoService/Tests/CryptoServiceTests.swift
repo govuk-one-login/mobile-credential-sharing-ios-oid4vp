@@ -177,20 +177,20 @@ struct CryptoServiceTests {
         // When
         try sut.constructDeviceAuthenticationBytes(in: session)
         let data = try #require(session.deviceAuthenticationBytes)
-        let deviceAuthenticationBytes = try CBOR.decode([UInt8](data))
-        
+        let deviceAuthenticationBytes = try decodeSignedPayload(data)
+
         // Then
         guard case let .tagged(_, .byteString(payload)) = deviceAuthenticationBytes else {
             Issue.record("Expected tagged DeviceAuthenticationBytes")
             return
         }
-        
+
         let decodedDeviceAuthentication = try CBOR.decode(payload)
         guard case let .array(deviceAuth) = decodedDeviceAuthentication else {
             Issue.record("Expected DeviceAuthentication array")
             return
         }
-        
+
         guard case let .tagged(tag, .byteString(deviceNameSpacesBytes)) = deviceAuth[3] else {
             Issue.record("Expected tagged DeviceNameSpacesBytes")
             return
@@ -221,14 +221,14 @@ struct CryptoServiceTests {
         // When
         try sut.constructDeviceAuthenticationBytes(in: session)
         let data = try #require(session.deviceAuthenticationBytes)
-        let deviceAuthenticationBytes = try CBOR.decode([UInt8](data))
-        
+        let deviceAuthenticationBytes = try decodeSignedPayload(data)
+
         // Then
         guard case let .tagged(_, .byteString(payload)) = deviceAuthenticationBytes else {
             Issue.record("Expected tagged DeviceAuthenticationBytes")
             return
         }
-        
+
         let decodedDeviceAuthentication = try CBOR.decode(payload)
         guard case let .array(deviceAuthElements) = decodedDeviceAuthentication else {
             Issue.record("Expected DeviceAuthentication array")
@@ -269,8 +269,8 @@ struct CryptoServiceTests {
         // When
         try sut.constructDeviceAuthenticationBytes(in: session)
         let data = try #require(session.deviceAuthenticationBytes)
-        let deviceAuthenticationBytes = try CBOR.decode([UInt8](data))
-        
+        let deviceAuthenticationBytes = try decodeSignedPayload(data)
+
         // Then
         guard case let .tagged(_, .byteString(deviceAuthenticationPayload)) = deviceAuthenticationBytes else {
             Issue.record("Expected tagged DeviceAuthenticationBytes")
@@ -278,6 +278,101 @@ struct CryptoServiceTests {
         }
 
         #expect(!deviceAuthenticationPayload.isEmpty)
+    }
+
+    // MARK: Sig_structure
+
+    /// Decodes the stored ToBeSigned value as a COSE `Sig_structure` (RFC 9052 §4.4) and returns its
+    /// detached payload element (`DeviceAuthenticationBytes`), decoded from CBOR.
+    private func decodeSignedPayload(_ data: Data) throws -> CBOR {
+        let sigStructure = try CBOR.decode([UInt8](data))
+        guard case let .array(elements) = sigStructure, elements.count == 4,
+              elements[0] == .utf8String("Signature1"),
+              case let .byteString(payloadBytes) = elements[3],
+              let payload = try CBOR.decode(payloadBytes) else {
+            Issue.record("Expected a 4-element COSE Sig_structure")
+            throw CryptoServiceError.deviceAuthenticationElementsNotFound
+        }
+        return payload
+    }
+
+    @Test("constructDeviceAuthenticationBytes stores a COSE Sig_structure wrapping the payload")
+    mutating func deviceAuthenticationBytesIsSigStructure() throws {
+        // Given
+        let session = MockCryptoSession()
+        try session.setSessionTranscriptAndDocType(
+            sessionTranscript: SessionTranscript(
+                deviceEngagementBytes: [0x01],
+                eReaderKeyBytes: [0x02],
+                handover: .qr
+            ),
+            docType: .mdl
+        )
+
+        // When
+        try sut.constructDeviceAuthenticationBytes(in: session)
+        let data = try #require(session.deviceAuthenticationBytes)
+        let sigStructure = try CBOR.decode([UInt8](data))
+
+        // Then — [ "Signature1", protected (bstr {1:-7}), external_aad (empty bstr), payload (bstr) ]
+        guard case let .array(elements) = sigStructure else {
+            Issue.record("Expected Sig_structure array")
+            return
+        }
+        #expect(elements.count == 4)
+        #expect(elements[0] == .utf8String("Signature1"))
+
+        guard case let .byteString(protectedHeaderBytes) = elements[1] else {
+            Issue.record("Expected protected header byteString")
+            return
+        }
+        #expect(try CBOR.decode(protectedHeaderBytes) == .map([.unsignedInt(1): .negativeInt(6)]))
+        #expect(elements[2] == .byteString([]))
+
+        // The payload is the Tag-24 DeviceAuthenticationBytes.
+        guard case let .byteString(payloadBytes) = elements[3],
+              case .tagged(.encodedCBORDataItem, _) = try CBOR.decode(payloadBytes) else {
+            Issue.record("Expected Tag-24 DeviceAuthenticationBytes payload")
+            return
+        }
+    }
+
+    @Test("DeviceAuth signature produced over the Sig_structure verifies with a standard COSE verifier")
+    mutating func deviceAuthSignatureVerifies() throws {
+        // Given a session with a to-be-signed Sig_structure, and a device key to sign it with.
+        let session = MockCryptoSession()
+        try session.setSessionTranscriptAndDocType(
+            sessionTranscript: SessionTranscript(
+                deviceEngagementBytes: [0x01],
+                eReaderKeyBytes: [0x02],
+                handover: .qr
+            ),
+            docType: .mdl
+        )
+        try sut.constructDeviceAuthenticationBytes(in: session)
+        let toBeSigned = try #require(session.deviceAuthenticationBytes)
+
+        let privateKey = P256.Signing.PrivateKey()
+        let signature = try privateKey.signature(for: toBeSigned)
+        try session.setSignatureBytes(signature.rawRepresentation)
+
+        // When the COSE_Sign1 is assembled from that signature.
+        try sut.generateDeviceSigned(in: session)
+        let deviceSigned = try #require(session.deviceSigned)
+
+        // Then a verifier reconstructing the Sig_structure accepts the signature over it.
+        guard case let .map(authMap) = deviceSigned.deviceAuth.toCBOR(),
+              case let .array(coseSign1) = authMap[.utf8String("deviceSignature")],
+              case let .byteString(protectedHeaderBytes) = coseSign1[0],
+              case let .byteString(signatureBytes) = coseSign1[3] else {
+            Issue.record("Expected a COSE_Sign1 with protected header and signature")
+            return
+        }
+        // The emitted protected header must match the one hashed inside the signed Sig_structure.
+        #expect(protectedHeaderBytes == COSESign1.es256ProtectedHeaderBytes)
+
+        let recoveredSignature = try P256.Signing.ECDSASignature(rawRepresentation: signatureBytes)
+        #expect(privateKey.publicKey.isValidSignature(recoveredSignature, for: [UInt8](toBeSigned)))
     }
     
     // MARK: Sign DeviceAuthenticationBytes
