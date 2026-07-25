@@ -14,7 +14,7 @@
           "provider": "GitHub",
           "config": {
             "file": ".github/workflows/pull-request.yml",
-            "path": "$.jobs.validate_lint.steps[?@.name=='run_linter']"
+            "path": "$.jobs.validate_lint.steps[?@.name=='Run Linter']"
           },
           "checks": [
             {
@@ -27,7 +27,7 @@
           "provider": "GitHub",
           "config": {
             "file": ".github/workflows/pull-request.yml",
-            "path": "$.jobs.build.steps[?@.name=='build']"
+            "path": "$.jobs.build.steps[?@.name=='Build']"
           },
           "checks": [
             {
