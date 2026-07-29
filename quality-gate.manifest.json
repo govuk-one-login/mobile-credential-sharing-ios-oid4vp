@@ -3,8 +3,8 @@
   "services": [
     {
       "product": "Mobile Credential Sharing iOS",
-      "component": "mobile-credential-sharing-ios",
-      "promotionType": "other",
+      "component": "mobile-credential-sharing-ios-oid4vp",
+      "promotionType": "library",
       "promotionTypeDetails": [
         "deploys library to a build account"
       ],
